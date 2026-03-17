@@ -7,7 +7,8 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { 
   Plus, Trash2, TrendingUp,
   Check, X, ChevronLeft, ChevronRight, PieChart as PieChartIcon,
-  Target, Info, ArrowUpRight, ArrowDownRight, LayoutDashboard
+  Target, Info, ArrowUpRight, ArrowDownRight, LayoutDashboard,
+  Edit2, Save
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer
@@ -48,7 +49,8 @@ export default function Budget() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [actualSpend, setActualSpend] = useState<Record<string, number>>({});
   
-  // Inline Add State
+  // New Entry State
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({ category: '', label: '', amount: '', isFixed: true });
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -113,11 +115,12 @@ export default function Budget() {
   }, [user, selectedMonth]);
 
   const handleAddRow = async () => {
+    if (!user) return;
     const category = isAddingNewCategory ? newCategoryName : newItem.category;
     if (!category || !newItem.amount) return;
 
     const { data, error } = await supabase.from('budget_items').insert({
-      user_id: user?.id,
+      user_id: user.id,
       category,
       label: newItem.label,
       expected_monthly: parseFloat(newItem.amount),
@@ -129,6 +132,7 @@ export default function Budget() {
       setNewItem({ category: '', label: '', amount: '', isFixed: true });
       setIsAddingNewCategory(false);
       setNewCategoryName('');
+      setShowAddForm(false);
     }
   };
 
@@ -341,184 +345,283 @@ export default function Budget() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="flex flex-col lg:flex-row gap-8">
         {/* Definition */}
-        <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
-          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+        <section className="flex-1 space-y-4">
+          <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Define Allocation</h2>
-              <Tooltip content="Set your planned spending for each category. 'Fixed' items are recurrences like rent." />
+              <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Allocation</h2>
+              <Tooltip content="Define your monthly spending plan. Fixed items are recurrences like rent." />
             </div>
-            <div className="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded text-muted-foreground uppercase">
-              Total: {formatCurrency(totalBudgeted)}
-            </div>
+            <button 
+              onClick={() => setShowAddForm(!showAddForm)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold uppercase transition-all",
+                showAddForm ? "bg-white text-black" : "bg-accent text-black"
+              )}
+            >
+              {showAddForm ? <><X size={14} /> Close</> : <><Plus size={14} /> New Entry</>}
+            </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-white/[0.02]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Category / Name</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Plan</th>
-                  <th className="px-6 py-4 text-center text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-right"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {budgetItems.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-white/[0.01] transition-colors group animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
-                    {editingId === item.id ? (
-                      <>
-                        <td className="px-6 py-4 space-y-2">
-                          <input className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" placeholder="Category" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} />
-                          <input className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" placeholder="Name/Label" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} />
-                        </td>
-                        <td className="px-6 py-4"><input type="number" className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent font-mono" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} /></td>
-                        <td className="px-6 py-4 text-center"><input type="checkbox" checked={editValue?.is_fixed} onChange={e => setEditValue(v => v ? {...v, is_fixed: e.target.checked} : null)} className="accent-accent" /></td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button onClick={saveEdit} className="text-accent hover:scale-110 transition-transform"><Check size={18} /></button>
-                            <button onClick={() => setEditingId(null)} className="text-destructive hover:scale-110 transition-transform"><X size={18} /></button>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-6 py-5 cursor-pointer" onClick={() => startEdit(item)}>
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{item.category}</span>
-                            <span className="text-sm font-bold text-foreground">{item.label || '—'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-sm font-mono font-bold text-muted-foreground cursor-pointer" onClick={() => startEdit(item)}>{formatCurrency(item.expected_monthly)}</td>
-                        <td className="px-6 py-5 text-center">
-                          <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border", item.is_fixed ? "bg-white/10 text-foreground border-white/20" : "bg-accent/10 text-accent border-accent/20")}>
-                            {item.is_fixed ? 'Fixed' : 'Var'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                          <button onClick={() => handleDelete(item.id)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
-                        </td>
-                      </>
+
+          {showAddForm && (
+            <div className="bg-card p-6 rounded-3xl border border-accent/20 animate-slide-up space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Category</label>
+                  {isAddingNewCategory ? (
+                    <div className="flex gap-2">
+                      <input 
+                        placeholder="New Category Name..." 
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent focus:border-accent" 
+                        value={newCategoryName} 
+                        onChange={e => setNewCategoryName(e.target.value)} 
+                        autoFocus
+                      />
+                      <button onClick={() => setIsAddingNewCategory(false)} className="p-3 text-destructive bg-white/5 rounded-xl"><X size={18} /></button>
+                    </div>
+                  ) : (
+                    <select 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent focus:border-accent"
+                      value={newItem.category}
+                      onChange={e => {
+                        if (e.target.value === 'ADD_NEW') {
+                          setIsAddingNewCategory(true);
+                        } else {
+                          setNewItem({...newItem, category: e.target.value});
+                        }
+                      }}
+                    >
+                      <option value="">Select Category...</option>
+                      {availableCategories.map(cat => (
+                        <option key={cat} value={cat} className="bg-[#0A0A0A]">{cat}</option>
+                      ))}
+                      <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ Add New Category...</option>
+                    </select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Entry Name</label>
+                  <input 
+                    placeholder="e.g. Rent, Netflix, Groceries..." 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent focus:border-accent" 
+                    value={newItem.label} 
+                    onChange={e => setNewItem({...newItem, label: e.target.value})} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Monthly Amount (€)</label>
+                  <input 
+                    type="number"
+                    placeholder="0.00" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-foreground focus:ring-accent focus:border-accent" 
+                    value={newItem.amount} 
+                    onChange={e => setNewItem({...newItem, amount: e.target.value})} 
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button 
+                    onClick={() => setNewItem({...newItem, isFixed: !newItem.isFixed})}
+                    className={cn(
+                      "w-full h-[46px] rounded-xl border flex items-center justify-center gap-3 transition-all font-mono text-[10px] uppercase font-bold",
+                      newItem.isFixed ? "bg-accent/10 border-accent/30 text-accent" : "bg-white/5 border-white/10 text-muted-foreground"
                     )}
-                  </tr>
-                ))}
-                {/* Add Inline */}
-                <tr className="bg-white/[0.02]">
-                  <td className="px-6 py-4 space-y-2">
-                    {isAddingNewCategory ? (
-                      <div className="flex gap-2">
-                        <input 
-                          placeholder="New Category Name..." 
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" 
-                          value={newCategoryName} 
-                          onChange={e => setNewCategoryName(e.target.value)} 
-                          autoFocus
-                        />
-                        <button onClick={() => setIsAddingNewCategory(false)} className="text-destructive"><X size={14} /></button>
+                  >
+                    <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", newItem.isFixed ? "bg-accent border-accent text-black" : "border-white/20")}>
+                      {newItem.isFixed && <Check size={12} />}
+                    </div>
+                    Fixed Expense / Recurring
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-2">
+                <button 
+                  onClick={handleAddRow}
+                  className="flex-1 bg-accent text-black h-14 rounded-2xl font-mono font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
+                >
+                  <Plus size={18} /> Add Entry
+                </button>
+                <button 
+                  onClick={() => setShowAddForm(false)}
+                  className="px-6 bg-white/5 text-muted-foreground rounded-2xl font-mono font-bold text-xs uppercase hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-card rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
+            {/* Desktop Header */}
+            <div className="hidden md:grid grid-cols-[1fr_120px_100px_80px] gap-4 px-8 py-5 bg-white/[0.02] border-b border-white/5">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Category & Entry</span>
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Plan</span>
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest text-center">Type</span>
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest text-right"></span>
+            </div>
+
+            <div className="divide-y divide-white/5">
+              {budgetItems.map((item, idx) => (
+                <div key={item.id} className="group hover:bg-white/[0.01] transition-colors animate-fade-in" style={{ animationDelay: `${idx * 40}ms` }}>
+                  {editingId === item.id ? (
+                    <div className="p-6 md:p-8 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-mono text-muted-foreground uppercase">Category</label>
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-mono text-muted-foreground uppercase">Name</label>
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-foreground focus:ring-accent" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-mono text-muted-foreground uppercase">Amount</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs font-mono text-foreground focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} />
+                        </div>
+                        <div className="flex items-end">
+                          <button onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("w-full h-[42px] rounded-xl border flex items-center justify-center gap-2 text-[10px] font-mono uppercase", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
+                            <div className={cn("w-3.5 h-3.5 rounded border flex items-center justify-center", editValue?.is_fixed ? "bg-accent border-accent text-black" : "border-white/20")}>
+                              {editValue?.is_fixed && <Check size={10} />}
+                            </div>
+                            Fixed
+                          </button>
+                        </div>
                       </div>
-                    ) : (
-                      <select 
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent"
-                        value={newItem.category}
-                        onChange={e => {
-                          if (e.target.value === 'ADD_NEW') {
-                            setIsAddingNewCategory(true);
-                          } else {
-                            setNewItem({...newItem, category: e.target.value});
-                          }
-                        }}
-                      >
-                        <option value="">Select Category...</option>
-                        {availableCategories.map(cat => (
-                          <option key={cat} value={cat} className="bg-[#0A0A0A]">{cat}</option>
-                        ))}
-                        <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ Add New Category...</option>
-                      </select>
-                    )}
-                    <input 
-                      placeholder="Entry Name (e.g. Rent, Netflix)..." 
-                      className="w-full bg-transparent border-none p-0 text-xs placeholder:text-muted-foreground/30 focus:ring-0" 
-                      value={newItem.label} 
-                      onChange={e => setNewItem({...newItem, label: e.target.value})} 
-                    />
-                  </td>
-                  <td className="px-6 py-4"><input type="number" placeholder="0.00" className="w-full bg-transparent border-none p-0 text-xs font-mono placeholder:text-muted-foreground/30 focus:ring-0" value={newItem.amount} onChange={e => setNewItem({...newItem, amount: e.target.value})} /></td>
-                  <td className="px-6 py-4 text-center"><input type="checkbox" checked={newItem.isFixed} onChange={e => setNewItem({...newItem, isFixed: e.target.checked})} className="accent-accent" /></td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={handleAddRow} className="text-accent p-1.5 hover:scale-110 transition-all"><Plus size={20} /></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <div className="flex gap-3">
+                        <button onClick={saveEdit} className="flex-1 bg-accent text-black py-3 rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2"><Check size={16} /> Save Changes</button>
+                        <button onClick={() => setEditingId(null)} className="px-6 bg-white/5 text-muted-foreground rounded-xl font-mono font-bold text-[10px] uppercase"><X size={16} /></button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col md:grid md:grid-cols-[1fr_120px_100px_80px] gap-4 px-6 md:px-8 py-5 items-center">
+                      <div className="w-full flex items-center gap-4">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[10px] font-mono uppercase tracking-widest text-accent/60 mb-0.5">{item.category}</span>
+                          <span className="text-sm font-bold text-foreground truncate">{item.label || '—'}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full md:w-auto flex items-center justify-between md:justify-start">
+                        <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Budget:</span>
+                        <span className="text-sm font-mono font-bold text-muted-foreground">{formatCurrency(item.expected_monthly)}</span>
+                      </div>
+
+                      <div className="w-full md:w-auto flex items-center justify-between md:justify-center">
+                        <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Type:</span>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border",
+                          item.is_fixed ? "bg-white/10 text-foreground border-white/20" : "bg-accent/10 text-accent border-accent/20"
+                        )}>
+                          {item.is_fixed ? 'Fixed' : 'Var'}
+                        </span>
+                      </div>
+
+                      <div className="w-full md:w-auto flex items-center justify-end gap-4 md:gap-2">
+                        <button onClick={() => startEdit(item)} className="p-2 text-muted-foreground hover:text-accent transition-colors"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-2 text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {budgetItems.length === 0 && (
+                <div className="p-12 text-center">
+                  <PieChartIcon size={40} className="mx-auto text-white/5 mb-4" />
+                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">No budget allocation defined yet.</p>
+                  <button onClick={() => setShowAddForm(true)} className="mt-4 text-xs font-bold text-accent underline underline-offset-4">Create first entry</button>
+                </div>
+              )}
+            </div>
+            
+            {budgetItems.length > 0 && (
+              <div className="bg-white/[0.01] p-6 border-t border-white/5 flex justify-between items-center">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Total Planned Allocation</span>
+                <span className="text-lg font-mono font-bold text-foreground">{formatCurrency(totalBudgeted)}</span>
+              </div>
+            )}
           </div>
         </section>
 
         {/* Comparison */}
-        <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden h-fit">
-          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+        <section className="w-full lg:w-[400px] space-y-4">
+          <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Monthly Status</h2>
               <Tooltip content="Real-time comparison between your budget and actual tracked spending." />
             </div>
-            <div className="text-[10px] font-mono font-bold bg-destructive/10 px-2 py-1 rounded text-destructive uppercase">
-              Actual: {formatCurrency(totalActual)}
-            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-white/[0.02]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Category</th>
-                  <th className="px-6 py-4 text-right text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-right text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Diff</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {budgetItems.map(item => {
-                  const actual = actualSpend[item.category] || 0;
-                  const diff = item.expected_monthly - actual;
-                  const progress = Math.min(100, (actual / item.expected_monthly) * 100);
-                  
-                  return (
-                    <tr key={`actual-${item.id}`} className="hover:bg-white/[0.01] transition-colors group">
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-xs font-bold">{item.category}</span>
-                          <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
-                            <div className={cn("h-full transition-all duration-700", diff >= 0 ? "bg-accent" : "bg-destructive")} style={{ width: `${progress}%` }} />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-mono font-bold">{formatCurrency(actual)}</span>
-                          <span className="text-[9px] font-mono text-muted-foreground tracking-tighter uppercase">of {formatCurrency(item.expected_monthly)}</span>
-                        </div>
-                      </td>
-                      <td className={cn(
-                        "px-6 py-5 text-right text-xs font-mono font-bold",
+          
+          <div className="bg-card rounded-3xl border border-white/5 overflow-hidden h-fit shadow-xl">
+            <div className="p-6 bg-white/[0.02] border-b border-white/5 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Actual Spending</span>
+              <span className="text-sm font-mono font-bold text-destructive uppercase tracking-tight">{formatCurrency(totalActual)}</span>
+            </div>
+            
+            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto custom-scrollbar">
+              {budgetItems.map(item => {
+                const actual = actualSpend[item.category] || 0;
+                const diff = item.expected_monthly - actual;
+                const progress = Math.min(100, (actual / item.expected_monthly) * 100);
+                
+                return (
+                  <div key={`actual-${item.id}`} className="p-6 hover:bg-white/[0.01] transition-colors">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-0.5">{item.category}</span>
+                        <span className="text-xs font-bold text-foreground">{item.label || '—'}</span>
+                      </div>
+                      <div className={cn(
+                        "text-right text-[11px] font-mono font-bold flex items-center gap-1",
                         diff >= 0 ? "text-accent" : "text-destructive"
                       )}>
-                        {diff >= 0 ? <ArrowUpRight size={14} className="inline mr-1" /> : <ArrowDownRight size={14} className="inline mr-1" />}
+                        {diff >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                         {formatCurrency(Math.abs(diff))}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {/* Uncategorized */}
-                {Object.keys(actualSpend).filter(cat => !budgetItems.some(bi => bi.category === cat)).map(cat => (
-                  <tr key={`uncat-${cat}`} className="bg-destructive/5">
-                    <td className="px-6 py-4 text-xs italic text-destructive font-medium">{cat}</td>
-                    <td className="px-6 py-4 text-right text-xs font-mono font-bold text-destructive">{formatCurrency(actualSpend[cat])}</td>
-                    <td className="px-6 py-4 text-right text-xs font-mono font-bold text-destructive">-{formatCurrency(actualSpend[cat])}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="p-4 bg-white/[0.02] flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
-            <Info size={14} className="text-accent" />
-            <span>Uncategorized expenses are highlighted in red.</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[10px] font-mono">
+                        <span className="text-muted-foreground">Used {formatCurrency(actual)}</span>
+                        <span className="font-bold">{Math.round(progress)}%</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className={cn("h-full transition-all duration-700", diff >= 0 ? "bg-accent" : "bg-destructive")} style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Uncategorized */}
+              {Object.keys(actualSpend).filter(cat => !budgetItems.some(bi => bi.category === cat)).map(cat => (
+                <div key={`uncat-${cat}`} className="p-6 bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-mono text-destructive uppercase tracking-widest mb-1">Uncategorized</span>
+                      <span className="text-xs font-bold text-destructive italic">{cat}</span>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                      <span className="text-xs font-mono font-bold text-destructive">-{formatCurrency(actualSpend[cat])}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {budgetItems.length === 0 && Object.keys(actualSpend).length === 0 && (
+                <div className="p-12 text-center text-muted-foreground italic text-xs font-mono uppercase tracking-widest">
+                  No data to compare
+                </div>
+              )}
+            </div>
+            
+            <div className="p-5 bg-white/[0.02] flex items-center gap-3 text-[9px] text-muted-foreground font-mono leading-relaxed border-t border-white/5 uppercase">
+              <Info size={14} className="text-accent shrink-0" />
+              <span>Uncategorized expenses are highlighted in red and impact your actual savings.</span>
+            </div>
           </div>
         </section>
       </div>
