@@ -7,7 +7,7 @@ import {
   TrendingUp, Target, Calendar, 
   Trash2,
   Landmark, PieChart as PieChartIcon, 
-  Plus, Plane, Skull, AlertTriangle, ArrowUpRight
+  Plus, Plane, Skull, ArrowUpRight
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
