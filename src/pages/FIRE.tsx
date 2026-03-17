@@ -31,7 +31,9 @@ interface SimulationDataPoint {
   netWorthNoTax: number;
   annualContribution: number;
   cumulativeContributions: number;
+  annualWithdrawal: number;
   box3TaxThisYear: number;
+  withdrawalTaxThisYear: number;
   cumulativeBox3Tax: number;
 }
 
@@ -83,6 +85,8 @@ export default function FIRE() {
   const [box3ReturnAllowance, setBox3ReturnAllowance] = useState(1800);
   const [box3DividendYield, setBox3DividendYield] = useState(0.07);
   const [box3TaxRate, setBox3TaxRate] = useState(0.36);
+
+  const [showYearlyData, setShowYearlyData] = useState(false);
 
   // Persistence State
   const [saving, setSaving] = useState(false);
@@ -321,8 +325,15 @@ export default function FIRE() {
     let reachedYears: number | null = null;
     let noTaxReachedYears: number | null = null;
 
+    // Track basis for Move Abroad (Step-up basis at move)
+    let valueAtMove = 0;
+    let hasMoved = false;
+
     for (let year = 0; year <= 60; year++) {
       let annualContribution = 0;
+      let annualWithdrawal = 0;
+      let withdrawalTaxThisYear = 0;
+
       const cshStartOfYear = csh;
       const etfStartOfYear = etf;
       const cshOptStartOfYear = cshOpt;
@@ -338,6 +349,12 @@ export default function FIRE() {
 
         const isForcedRetirementActive = forcedRetirementYear != null && currentYearSim >= forcedRetirementYear;
         const isRetiredPreCheck = isForcedRetirementActive || reachedDate !== null;
+        const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
+
+        if (isAbroadActive && !hasMoved) {
+          valueAtMove = csh + etf;
+          hasMoved = true;
+        }
 
         let monthlyContrib = 0;
         contributions.forEach(c => {
@@ -392,9 +409,7 @@ export default function FIRE() {
                 for (let y = totalYearsToSim - 1; y >= 0; y--) {
                   const evalYear = currentYearSim + y;
                   const isAbroadThisEvalYear = moveAbroadEnabled && evalYear >= moveAbroadYear;
-                  const evalRequiredAnnualGrossExpenses = isAbroadThisEvalYear ? (annualExpenses || 0) / (1 - moveAbroadTaxRate) : (annualExpenses || 0);
-                  const evalMonthlyExpenses = evalRequiredAnnualGrossExpenses / 12;
-
+                  
                   let monthsInThisYear = 12;
                   if (y === 0) monthsInThisYear = 12 - currentMonthDate.getMonth();
 
@@ -404,6 +419,24 @@ export default function FIRE() {
 
                   for (let i = 0; i < 40; i++) { 
                     let mid = (low + high) / 2;
+                    
+                    // Predict Value at Move for this specific sufficiency check
+                    // If we haven't reached move year yet, the value at move is projected growth from 'mid'
+                    let predictedValueAtMove = valueAtMove;
+                    if (moveAbroadEnabled && !hasMoved && evalYear >= moveAbroadYear) {
+                      const yearsToMove = moveAbroadYear - currentYearSim;
+                      predictedValueAtMove = mid * Math.pow(1 + realEtfReturnRate, yearsToMove);
+                    }
+
+                    // Calculate required gross considering that only appreciation AFTER move is taxed
+                    let evalMonthlyExpenses = (annualExpenses / 12);
+                    if (isAbroadThisEvalYear) {
+                      const totalProfit = Math.max(0, mid - predictedValueAtMove);
+                      const profitRatio = mid > 0 ? totalProfit / mid : 0;
+                      const effectiveTaxOnWithdrawal = profitRatio * moveAbroadTaxRate;
+                      evalMonthlyExpenses = (annualExpenses / 12) / (1 - effectiveTaxOnWithdrawal);
+                    }
+
                     // Project cash balance to this year to estimate asset allocation
                     let pCsh = Math.min(mid, currentCash * Math.pow(1 + (realCashReturnRate || 0), year + (month/12) + y));
                     let pEtf = Math.max(0, mid - pCsh);
@@ -450,7 +483,13 @@ export default function FIRE() {
             } else if (isTargetMet) {
               // Perpetual logic
               const isAbroadNow = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
-              const requiredGross = isAbroadNow ? (annualExpenses || 0) / (1 - moveAbroadTaxRate) : (annualExpenses || 0);
+              let requiredGross = annualExpenses;
+              if (isAbroadNow) {
+                const totalProfit = Math.max(0, nwBeforeExpenses - valueAtMove);
+                const profitRatio = nwBeforeExpenses > 0 ? totalProfit / nwBeforeExpenses : 0;
+                requiredGross = annualExpenses / (1 - (profitRatio * moveAbroadTaxRate));
+              }
+
               let expectedBox3Tax = 0;
               if (box3Enabled && currentYearSim >= (box3StartYear || 2028) && !isAbroadNow) {
                 if (box3Model === 'bridging') {
@@ -470,8 +509,6 @@ export default function FIRE() {
                 }
               }
               const portfolioRealReturn = (csh * (realCashReturnRate || 0)) + (etf * (realEtfReturnRate || 0));
-              // Comparison MUST be annual vs annual OR monthly vs monthly. 
-              // portfolioRealReturn is annual (approx).
               isSelfSufficient = (portfolioRealReturn - expectedBox3Tax) >= requiredGross;
             }
 
@@ -484,7 +521,6 @@ export default function FIRE() {
           // Check for FIRE Reached (No Tax) - simplified check for the drag indicator
           if (!noTaxReachedYears) {
              if (deathYear != null) {
-                // For death year, we just use the target heuristic for the 'no tax' line
                 if (nwBeforeExpensesNoTax >= target) noTaxReachedYears = year + (month + 1) / 12;
              } else {
                 const portfolioRealReturnNoTax = (cshNoTax * (realCashReturnRate || 0)) + (etfNoTax * (realEtfReturnRate || 0));
@@ -496,7 +532,16 @@ export default function FIRE() {
         const isRetiredNow = (forcedRetirementYear != null && currentYearSim >= forcedRetirementYear) || reachedDate !== null;
         if (isRetiredNow) {
           const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
-          const monthlyExpenses = isAbroadActive ? (annualExpenses / 12) / (1 - moveAbroadTaxRate) : (annualExpenses / 12);
+          let monthlyExpenses = (annualExpenses / 12);
+          if (isAbroadActive) {
+            const currentTotal = csh + etf;
+            const totalProfit = Math.max(0, currentTotal - valueAtMove);
+            const profitRatio = currentTotal > 0 ? totalProfit / currentTotal : 0;
+            const effectiveTax = profitRatio * moveAbroadTaxRate;
+            monthlyExpenses = (annualExpenses / 12) / (1 - effectiveTax);
+            withdrawalTaxThisYear += (monthlyExpenses - (annualExpenses / 12));
+          }
+          annualWithdrawal += (annualExpenses / 12);
           etf -= monthlyExpenses;
           etfOpt -= monthlyExpenses;
           etfPess -= monthlyExpenses;
@@ -556,7 +601,9 @@ export default function FIRE() {
         netWorthNoTax: cshNoTax + etfNoTax,
         annualContribution,
         cumulativeContributions: totalContributions,
+        annualWithdrawal,
         box3TaxThisYear,
+        withdrawalTaxThisYear,
         cumulativeBox3Tax: totalBox3Paid
       });
       if (year === 60) break;
@@ -1445,6 +1492,48 @@ export default function FIRE() {
                 <div className="text-[10px] text-gray-400">{fatResult.reached ? `${fatResult.years?.toFixed(1)}y` : 'Not reached'}</div>
               </div>
             </div>
+          </div>
+
+          {/* Yearly Data Table */}
+          <div className="pt-8 border-t border-gray-100">
+            <button 
+              onClick={() => setShowYearlyData(!showYearlyData)}
+              className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-indigo-600 transition-colors mx-auto"
+            >
+              <Info size={16} />
+              {showYearlyData ? 'Hide Yearly Projections' : 'Show Yearly Projections'}
+            </button>
+
+            {showYearlyData && (
+              <div className="mt-8 overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50/50 border-b border-gray-100">
+                      <th className="py-4 px-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Year</th>
+                      <th className="py-4 px-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Net Worth</th>
+                      <th className="py-4 px-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Contrib</th>
+                      <th className="py-4 px-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Withdraw</th>
+                      <th className="py-4 px-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-400">Box 3</th>
+                      <th className="py-4 px-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-400">Wth Tax</th>
+                      <th className="py-4 px-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Principal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {baseResult.data.map((d) => (
+                      <tr key={d.year} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-4 text-xs font-bold text-gray-900">{d.date}</td>
+                        <td className="py-3 px-4 text-xs text-right font-medium text-indigo-600">{formatCurrency(d.netWorth)}</td>
+                        <td className="py-3 px-4 text-xs text-right text-emerald-600">{d.annualContribution > 0 ? formatCurrency(d.annualContribution) : '—'}</td>
+                        <td className="py-3 px-4 text-xs text-right text-amber-600">{d.annualWithdrawal > 0 ? formatCurrency(d.annualWithdrawal) : '—'}</td>
+                        <td className="py-3 px-4 text-xs text-right text-red-500">{d.box3TaxThisYear > 0 ? formatCurrency(d.box3TaxThisYear) : '—'}</td>
+                        <td className="py-3 px-4 text-xs text-right text-red-500">{d.withdrawalTaxThisYear > 0 ? formatCurrency(d.withdrawalTaxThisYear) : '—'}</td>
+                        <td className="py-3 px-4 text-xs text-right text-gray-400">{formatCurrency(d.cumulativeContributions)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
