@@ -10,7 +10,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
+import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal, PieChart as PieChartIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Transaction {

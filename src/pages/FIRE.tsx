@@ -7,11 +7,11 @@ import {
   TrendingUp, Target, Calendar, 
   Trash2,
   Landmark, PieChart as PieChartIcon, 
-  Plus, Plane, Skull
+  Plus, Plane, Skull, AlertTriangle, ArrowUpRight
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, ReferenceLine
+  ResponsiveContainer, ReferenceLine, ReferenceArea
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
@@ -279,8 +279,8 @@ export default function FIRE() {
     let valueAtMove = 0; let hasMoved = false;
 
     // Simulation for 60 years or until death
-    const currentYear = new Date().getFullYear();
-    const maxYears = deathYear ? Math.max(1, deathYear - currentYear) : 60;
+    const currentYearSimStart = new Date().getFullYear();
+    const maxYears = deathYear ? Math.max(1, deathYear - currentYearSimStart) : 60;
 
     for (let year = 0; year <= maxYears; year++) {
       let annualContribution = 0; let annualWithdrawal = 0; let withdrawalTaxThisYear = 0;
@@ -292,7 +292,6 @@ export default function FIRE() {
         const dateStr = currentMonthDate.toISOString().slice(0, 7);
         const currentYearSim = currentMonthDate.getFullYear();
         
-        // Stop simulation if reached death year
         if (deathYear && currentYearSim > deathYear) break;
 
         const isRetiredPreCheck = (forcedRetirementYear != null && currentYearSim >= forcedRetirementYear) || reachedDate !== null;
@@ -376,12 +375,24 @@ export default function FIRE() {
       if (year === maxYears) break;
     }
     return { reached: reachedDate != null, date: reachedDate, years: reachedYears, data: dataPoints, target, totalBox3Paid, noTaxYears: noTaxReachedYears };
-  }, [annualExpenses, realEtfReturnRate, realCashReturnRate, currentCash, currentEtf, contributions, growthEnabled, growthRate, box3Enabled, box3Model, box3StartYear, box3FiscalPartner, box3Threshold, box3ReturnAllowance, box3DividendYield, box3TaxRate, forcedRetirementYear, moveAbroadEnabled, moveAbroadYear, moveAbroadTaxRate, deathYear]);
+  }, [annualExpenses, realEtfReturnRate, realCashReturnRate, currentCash, currentEtf, contributions, growthEnabled, growthRate, box3Enabled, box3Model, box3StartYear, box3FiscalPartner, box3Threshold, box3ReturnAllowance, box3DividendYield, box3TaxRate, forcedRetirementYear, moveAbroadEnabled, moveAbroadYear, moveAbroadTaxRate, deathYear, nominalReturn, cashInterestRate]);
 
   const baseResult = useMemo(() => runSimulation(effectiveMultiplier), [runSimulation, effectiveMultiplier]);
   const leanResult = useMemo(() => runSimulation(effectiveMultiplier * 0.7), [runSimulation, effectiveMultiplier]);
   const fatResult = useMemo(() => runSimulation(effectiveMultiplier * 1.5), [runSimulation, effectiveMultiplier]);
   const progressPercent = fireTarget > 0 ? Math.min(100, (currentNetWorth / fireTarget) * 100) : 0;
+
+  // Helpers
+  const addPeriod = () => {
+    const today = new Date().toISOString().slice(0, 7);
+    setContributions([...contributions, { id: crypto.randomUUID(), label: 'New Phase', monthly_amount: 1000, from_date: today, to_date: null }]);
+  };
+  const updatePeriod = (id: string, updates: Partial<FIREContribution>) => {
+    setContributions(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+  const deletePeriod = (id: string) => {
+    setContributions(prev => prev.filter(p => p.id !== id));
+  };
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -432,15 +443,23 @@ export default function FIRE() {
           <section className="bg-card p-6 rounded-2xl border-t border-white/5 relative overflow-hidden">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Capital Projection</h3>
-              <TrendingUp size={16} className="text-accent" />
+              {growthEnabled && (
+                <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-1 rounded border border-accent/20 flex items-center">
+                  <ArrowUpRight size={12} className="mr-1" /> Contributions +{(growthRate*100).toFixed(1)}%/yr
+                </span>
+              )}
             </div>
             <div className="h-[45vh] w-full min-h-[400px] touch-none">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={baseResult.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="fireGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#00E5C3" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#00E5C3" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="fireGradNegative" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
@@ -450,13 +469,47 @@ export default function FIRE() {
                     trigger="click"
                     contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
                     itemStyle={{ fontSize: '12px' }}
-                    formatter={(val: any) => formatCurrency(val)}
+                    formatter={(val: any, name: any) => {
+                      if (name === 'netWorth') return [formatCurrency(val), 'Net Worth (Taxed)'];
+                      if (name === 'netWorthNoTax') return [formatCurrency(val), 'Net Worth (No Tax)'];
+                      if (name === 'cumulativeContributions') return [formatCurrency(val), 'Principal'];
+                      return [formatCurrency(val), name];
+                    }}
                   />
-                  <Area type="monotone" dataKey="netWorth" stroke="var(--accent)" strokeWidth={3} fillOpacity={1} fill="url(#fireGrad)" animationDuration={1000} isAnimationActive={true} />
+                  
+                  {/* Variance Bands */}
+                  <Area type="monotone" dataKey="netWorthOptimistic" stroke="none" fill="#00E5C3" fillOpacity={0.1} />
+                  <Area type="monotone" dataKey="netWorthPessimistic" stroke="none" fill="#00E5C3" fillOpacity={0.1} />
+
+                  {/* Principal */}
+                  <Area type="monotone" dataKey="cumulativeContributions" stroke="#10B981" strokeWidth={2} fillOpacity={0.1} fill="#10B981" />
+
+                  {/* Primary Line */}
+                  <Area 
+                    type="monotone" 
+                    dataKey="netWorth" 
+                    stroke={baseResult.data.length > 0 && baseResult.data[baseResult.data.length - 1].netWorth <= 0 ? "#EF4444" : "#00E5C3"} 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill={baseResult.data.length > 0 && baseResult.data[baseResult.data.length - 1].netWorth <= 0 ? "url(#fireGradNegative)" : "url(#fireGrad)"} 
+                    animationDuration={1000} 
+                    isAnimationActive={true} 
+                  />
+
                   <ReferenceLine y={fireTarget} stroke="#F59E0B" strokeDasharray="6 6" label={{ value: 'FIRE', position: 'insideTopRight', fill: '#F59E0B', fontSize: 10, fontWeight: 'bold', fontFamily: 'DM Mono' }} />
                   {baseResult.reached && (
                     <ReferenceLine x={baseResult.data[Math.floor(baseResult.years || 0)]?.date} stroke="#00E5C3" strokeDasharray="4 4" />
                   )}
+
+                  {/* Contribution Areas */}
+                  {contributions.map((c) => (
+                    <ReferenceArea 
+                      key={c.id}
+                      x1={c.from_date.split('-')[0]}
+                      x2={c.to_date ? c.to_date.split('-')[0] : (new Date().getFullYear() + 60).toString()}
+                      fill="rgba(255,255,255,0.02)"
+                    />
+                  ))}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -466,10 +519,7 @@ export default function FIRE() {
           <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Contribution Periods</h3>
-              <button onClick={() => {
-                const today = new Date().toISOString().slice(0, 7);
-                setContributions([...contributions, { id: crypto.randomUUID(), label: 'New Period', monthly_amount: 1000, from_date: today, to_date: null }]);
-              }} className="text-xs font-mono text-accent bg-accent/10 px-3 py-1.5 rounded-full hover:bg-accent/20 transition-colors flex items-center gap-2">
+              <button onClick={addPeriod} className="text-xs font-mono text-accent bg-accent/10 px-3 py-1.5 rounded-full hover:bg-accent/20 transition-colors flex items-center gap-2">
                 <Plus size={14} /> Add Phase
               </button>
             </div>
@@ -482,7 +532,7 @@ export default function FIRE() {
                         <div className="flex flex-col gap-1">
                           <input 
                             value={c.label} 
-                            onChange={(e) => setContributions(prev => prev.map(p => p.id === c.id ? { ...p, label: e.target.value } : p))}
+                            onChange={(e) => updatePeriod(c.id, { label: e.target.value })}
                             className="bg-transparent border-none p-0 text-sm font-bold focus:ring-0 text-foreground"
                           />
                           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Label</span>
@@ -493,7 +543,7 @@ export default function FIRE() {
                           <input 
                             type="number"
                             value={c.monthly_amount} 
-                            onChange={(e) => setContributions(prev => prev.map(p => p.id === c.id ? { ...p, monthly_amount: parseFloat(e.target.value) || 0 } : p))}
+                            onChange={(e) => updatePeriod(c.id, { monthly_amount: parseFloat(e.target.value) || 0 })}
                             className="bg-transparent border-none p-0 text-sm font-mono font-bold focus:ring-0 text-accent"
                           />
                           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Monthly €</span>
@@ -501,12 +551,30 @@ export default function FIRE() {
                       </td>
                       <td className="p-6">
                         <div className="flex flex-col gap-1">
-                          <input type="month" value={c.from_date} onChange={(e) => setContributions(prev => prev.map(p => p.id === c.id ? { ...p, from_date: e.target.value } : p))} className="bg-transparent border-none p-0 text-[11px] font-mono focus:ring-0" />
+                          <input type="month" value={c.from_date} onChange={(e) => updatePeriod(c.id, { from_date: e.target.value })} className="bg-transparent border-none p-0 text-[11px] font-mono focus:ring-0" />
                           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Start</span>
                         </div>
                       </td>
+                      <td className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col gap-1">
+                            {c.to_date ? (
+                              <input type="month" value={c.to_date} onChange={(e) => updatePeriod(c.id, { to_date: e.target.value })} className="bg-transparent border-none p-0 text-[11px] font-mono focus:ring-0" />
+                            ) : (
+                              <span className="text-[11px] font-mono text-muted-foreground italic">Retirement</span>
+                            )}
+                            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">End</span>
+                          </div>
+                          <input 
+                            type="checkbox" 
+                            checked={!c.to_date} 
+                            onChange={(e) => updatePeriod(c.id, { to_date: e.target.checked ? null : new Date().toISOString().slice(0, 7) })} 
+                            className="accent-accent"
+                          />
+                        </div>
+                      </td>
                       <td className="p-6 text-right">
-                        <button onClick={() => setContributions(prev => prev.filter(p => p.id !== c.id))} className="text-muted-foreground hover:text-destructive transition-colors p-2">
+                        <button onClick={() => deletePeriod(c.id)} className="text-muted-foreground hover:text-destructive transition-colors p-2">
                           <Trash2 size={16} />
                         </button>
                       </td>
@@ -516,6 +584,25 @@ export default function FIRE() {
               </table>
             </div>
           </section>
+
+          {/* Sensitivity Variants */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { label: 'Lean FIRE', res: leanResult, sub: '70% budget', color: 'text-accent/60' },
+              { label: 'Regular', res: baseResult, sub: '100% budget', color: 'text-accent' },
+              { label: 'Fat FIRE', res: fatResult, sub: '150% budget', color: 'text-amber-500' },
+            ].map((v, i) => (
+              <div key={i} className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
+                <h3 className={cn("text-[10px] font-mono uppercase tracking-widest mb-4", v.color)}>{v.label}</h3>
+                <div className="text-xl font-mono font-bold">{formatCurrency(v.res.target)}</div>
+                <p className="text-[10px] text-muted-foreground mt-1 mb-4 uppercase">{v.sub}</p>
+                <div className="pt-4 border-t border-white/5 flex justify-between items-end">
+                  <div className="text-sm font-bold font-mono">{v.res.date || '---'}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">{v.res.years ? `${v.res.years.toFixed(1)}y` : ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Sidebar Controls */}
@@ -531,10 +618,10 @@ export default function FIRE() {
                   <select 
                     value={fireMode}
                     onChange={(e) => setFireMode(e.target.value as any)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
                   >
-                    <option value="multiplier">25x Multiplier</option>
-                    <option value="withdrawal">Safe Withdrawal Rate</option>
+                    <option value="multiplier">Multiplier</option>
+                    <option value="withdrawal">SWR %</option>
                   </select>
                 </div>
                 {fireMode === 'multiplier' ? (
@@ -544,7 +631,7 @@ export default function FIRE() {
                       type="number"
                       value={multiplier}
                       onChange={(e) => setMultiplier(parseFloat(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
                     />
                   </div>
                 ) : (
@@ -555,7 +642,7 @@ export default function FIRE() {
                       step="0.001"
                       value={withdrawalRate}
                       onChange={(e) => setWithdrawalRate(parseFloat(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
                     />
                   </div>
                 )}
@@ -601,7 +688,7 @@ export default function FIRE() {
                       value={deathYear || ''}
                       placeholder="e.g. 2086"
                       onChange={(e) => setDeathYear(parseInt(e.target.value) || null)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
                     />
                   </div>
                   <div className="space-y-2">
@@ -614,7 +701,7 @@ export default function FIRE() {
                       value={forcedRetirementYear || ''}
                       placeholder="e.g. 2050"
                       onChange={(e) => setForcedRetirementYear(parseInt(e.target.value) || null)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
                     />
                   </div>
                 </div>
@@ -718,15 +805,15 @@ export default function FIRE() {
             <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-accent">Sensitivity Analysis</h3>
             <div className="space-y-3">
               {[
-                { label: 'Lean FIRE', date: leanResult.date, years: leanResult.years, color: 'text-accent/60' },
-                { label: 'Standard', date: baseResult.date, years: baseResult.years, color: 'text-accent' },
-                { label: 'Fat FIRE', date: fatResult.date, years: fatResult.years, color: 'text-accent/40' },
+                { label: 'Lean FIRE', res: leanResult, sub: '70% budget', color: 'text-accent/60' },
+                { label: 'Standard', res: baseResult, sub: '100% budget', color: 'text-accent' },
+                { label: 'Fat FIRE', res: fatResult, sub: '150% budget', color: 'text-accent/40' },
               ].map((v, i) => (
                 <div key={i} className="flex justify-between items-center group">
                   <span className={cn("text-[10px] font-mono uppercase tracking-wider", v.color)}>{v.label}</span>
                   <div className="flex flex-col items-end">
-                    <span className="text-xs font-bold font-mono">{v.date || '---'}</span>
-                    <span className="text-[9px] text-muted-foreground font-mono">{v.years ? `${v.years.toFixed(1)}y` : ''}</span>
+                    <span className="text-xs font-bold font-mono">{v.res.date || '---'}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">{v.res.years ? `${v.res.years.toFixed(1)}y` : ''}</span>
                   </div>
                 </div>
               ))}
