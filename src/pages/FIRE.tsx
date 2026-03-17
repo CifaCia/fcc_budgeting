@@ -7,7 +7,7 @@ import {
   TrendingUp, Target, Calendar, 
   Trash2,
   Landmark, PieChart as PieChartIcon, 
-  Plus, Plane, Skull, AlertCircle, Info, ChevronDown, ChevronUp
+  Plus, Plane, Skull
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -54,7 +54,6 @@ export default function FIRE() {
   
   // UI States
   const [showAdvancedBox3, setShowAdvancedBox3] = useState(false);
-  const [showMoveAbroad, setShowMoveAbroad] = useState(false);
 
   // Core Inputs
   const [cashBalanceOverride, setCashBalanceOverride] = useState<number | null>(null);

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { generateRowHash } from '@/lib/csvParsers';
-import { PlusCircle, CheckCircle, AlertCircle, Landmark } from 'lucide-react';
+import { CheckCircle, AlertCircle, Landmark } from 'lucide-react';
 import { updateLastUploadMetadata } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
