@@ -277,7 +277,6 @@ export default function Dashboard() {
                     tickFormatter={(val) => val >= 1000 ? `€${(val/1000).toFixed(0)}k` : `€${val}`}
                   />
                   <RechartsTooltip 
-                    trigger="click"
                     contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
                     itemStyle={{ color: '#00E5C3' }}
                     formatter={(val: any) => formatCurrency(val)}
