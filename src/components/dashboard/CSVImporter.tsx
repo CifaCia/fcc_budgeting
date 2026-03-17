@@ -3,8 +3,9 @@ import { parseCSV } from '@/lib/csvParsers';
 import type { CSVSource, NormalizedTransaction } from '@/lib/csvParsers';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { CheckCircle, AlertCircle, FileText, AlertTriangle } from 'lucide-react';
+import { CheckCircle, AlertCircle, FileText, AlertTriangle, Upload } from 'lucide-react';
 import { updateLastUploadMetadata } from '@/lib/settings';
+import { cn } from '@/lib/utils';
 
 export default function CSVImporter({ onComplete }: { onComplete?: () => void }) {
   const { user } = useAuth();
@@ -64,11 +65,20 @@ export default function CSVImporter({ onComplete }: { onComplete?: () => void })
   };
 
   return (
-    <div className="space-y-6 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-6 bg-white/[0.03] p-6 rounded-2xl border border-white/5 shadow-2xl">
+      <div className="flex items-center gap-3 mb-2">
+        <Upload size={20} className="text-accent" />
+        <h3 className="text-lg font-display font-bold">CSV Engine</h3>
+      </div>
+
+      <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
-          <select value={source} onChange={(e) => setSource(e.target.value as CSVSource)} className="block w-full rounded-md border-gray-300 p-2 border sm:text-sm">
+          <label className="block text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest mb-2">Source Provider</label>
+          <select 
+            value={source} 
+            onChange={(e) => setSource(e.target.value as CSVSource)} 
+            className="block w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-accent text-foreground"
+          >
             <option value="abn_amro_checking">ABN AMRO (Checking)</option>
             <option value="abn_amro_savings">ABN AMRO (Savings)</option>
             <option value="degiro">DEGIRO (Transactions)</option>
@@ -76,45 +86,68 @@ export default function CSVImporter({ onComplete }: { onComplete?: () => void })
             <option value="trade_republic">Trade Republic</option>
           </select>
         </div>
+        
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Select File</label>
-          <input type="file" accept=".csv,.txt,.tab" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+          <label className="block text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest mb-2">Select Data File</label>
+          <div className="relative group">
+            <input 
+              type="file" 
+              accept=".csv,.txt,.tab" 
+              onChange={handleFileChange} 
+              className="block w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-mono file:font-bold file:bg-accent file:text-black hover:file:opacity-90 cursor-pointer bg-white/5 rounded-xl p-2 border border-white/5" 
+            />
+          </div>
         </div>
       </div>
 
       {source === 'degiro_portfolio' && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
-          <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={16} />
-          <p className="text-xs text-amber-800"><strong>OVERRIDE MODE:</strong> This replaces all DEGIRO data.</p>
+        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+          <p className="text-[10px] font-mono text-amber-200 uppercase leading-relaxed"><strong>Destructive Mode:</strong> This action will purge and replace all existing DEGIRO records.</p>
         </div>
       )}
 
       {status && (
-        <div className={`p-4 rounded-md flex items-center gap-3 ${status.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {status.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-          <span className="text-sm font-medium">{status.message}</span>
+        <div className={cn(
+          "p-4 rounded-xl flex items-center gap-3 border",
+          status.type === 'success' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-destructive/10 border-destructive/20 text-destructive'
+        )}>
+          {status.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span className="text-[11px] font-mono font-bold uppercase">{status.message}</span>
         </div>
       )}
 
       {transactions.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2"><FileText size={20} className="text-gray-400" /> Preview ({transactions.length} rows)</h3>
-            <button onClick={handleImport} disabled={isImporting} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-              {isImporting ? 'Importing...' : 'Import Data'}
+        <div className="mt-6 space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-mono font-bold text-muted-foreground uppercase flex items-center gap-2">
+              <FileText size={14} /> Ready: {transactions.length} Rows
+            </h3>
+            <button 
+              onClick={handleImport} 
+              disabled={isImporting} 
+              className="bg-accent text-black px-6 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-widest hover:scale-105 transition-transform disabled:opacity-50"
+            >
+              {isImporting ? 'Processing...' : 'Commit Data'}
             </button>
           </div>
-          <div className="overflow-x-auto border rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr><th className="px-4 py-2 text-left">Description</th><th className="px-4 py-2 text-left">Category</th><th className="px-4 py-2 text-right">Amount</th></tr>
+          <div className="overflow-x-auto border border-white/5 rounded-xl bg-black/20">
+            <table className="min-w-full divide-y divide-white/5 text-[10px] font-mono">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="px-4 py-2 text-left text-muted-foreground">Description</th>
+                  <th className="px-4 py-2 text-left text-muted-foreground">Type</th>
+                  <th className="px-4 py-2 text-right text-muted-foreground">Amount</th>
+                </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.slice(0, 10).map((t, i) => (
+              <tbody className="divide-y divide-white/5">
+                {transactions.slice(0, 5).map((t, i) => (
                   <tr key={i}>
-                    <td className="px-4 py-2 truncate max-w-xs">{t.description}</td>
-                    <td className="px-4 py-2 font-bold text-indigo-600">{t.category}</td>
-                    <td className={`px-4 py-2 text-right font-medium ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>{t.amount.toFixed(2)}</td>
+                    <td className="px-4 py-2 truncate max-w-[120px]">{t.description}</td>
+                    <td className="px-4 py-2 text-accent">{t.category}</td>
+                    <td className={cn("px-4 py-2 text-right font-bold", t.amount < 0 ? 'text-destructive' : 'text-accent')}>
+                      {t.amount.toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

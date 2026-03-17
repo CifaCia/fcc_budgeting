@@ -7,7 +7,7 @@ import {
   TrendingUp, Target, Calendar, 
   Trash2,
   Landmark, PieChart as PieChartIcon, 
-  Plus
+  Plus, Plane, Skull, AlertCircle, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -52,6 +52,10 @@ export default function FIRE() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   
+  // UI States
+  const [showAdvancedBox3, setShowAdvancedBox3] = useState(false);
+  const [showMoveAbroad, setShowMoveAbroad] = useState(false);
+
   // Core Inputs
   const [cashBalanceOverride, setCashBalanceOverride] = useState<number | null>(null);
   const [etfBalanceOverride, setEtfBalanceOverride] = useState<number | null>(null);
@@ -275,7 +279,11 @@ export default function FIRE() {
     let noTaxReachedYears: number | null = null;
     let valueAtMove = 0; let hasMoved = false;
 
-    for (let year = 0; year <= 60; year++) {
+    // Simulation for 60 years or until death
+    const currentYear = new Date().getFullYear();
+    const maxYears = deathYear ? Math.max(1, deathYear - currentYear) : 60;
+
+    for (let year = 0; year <= maxYears; year++) {
       let annualContribution = 0; let annualWithdrawal = 0; let withdrawalTaxThisYear = 0;
       const cshStartOfYear = csh; const etfStartOfYear = etf;
       
@@ -284,6 +292,10 @@ export default function FIRE() {
         currentMonthDate.setMonth(startDate.getMonth() + (year * 12) + month);
         const dateStr = currentMonthDate.toISOString().slice(0, 7);
         const currentYearSim = currentMonthDate.getFullYear();
+        
+        // Stop simulation if reached death year
+        if (deathYear && currentYearSim > deathYear) break;
+
         const isRetiredPreCheck = (forcedRetirementYear != null && currentYearSim >= forcedRetirementYear) || reachedDate !== null;
         const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
 
@@ -362,10 +374,10 @@ export default function FIRE() {
         cumulativeContributions: totalContributions, annualWithdrawal,
         box3TaxThisYear, withdrawalTaxThisYear, cumulativeBox3Tax: totalBox3Paid
       });
-      if (year === 60) break;
+      if (year === maxYears) break;
     }
     return { reached: reachedDate != null, date: reachedDate, years: reachedYears, data: dataPoints, target, totalBox3Paid, noTaxYears: noTaxReachedYears };
-  }, [annualExpenses, realEtfReturnRate, realCashReturnRate, currentCash, currentEtf, contributions, growthEnabled, growthRate, box3Enabled, box3Model, box3StartYear, box3FiscalPartner, box3Threshold, box3ReturnAllowance, box3DividendYield, box3TaxRate, forcedRetirementYear, moveAbroadEnabled, moveAbroadYear, moveAbroadTaxRate]);
+  }, [annualExpenses, realEtfReturnRate, realCashReturnRate, currentCash, currentEtf, contributions, growthEnabled, growthRate, box3Enabled, box3Model, box3StartYear, box3FiscalPartner, box3Threshold, box3ReturnAllowance, box3DividendYield, box3TaxRate, forcedRetirementYear, moveAbroadEnabled, moveAbroadYear, moveAbroadTaxRate, deathYear]);
 
   const baseResult = useMemo(() => runSimulation(effectiveMultiplier), [runSimulation, effectiveMultiplier]);
   const leanResult = useMemo(() => runSimulation(effectiveMultiplier * 0.7), [runSimulation, effectiveMultiplier]);
@@ -423,9 +435,9 @@ export default function FIRE() {
               <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Capital Projection</h3>
               <TrendingUp size={16} className="text-accent" />
             </div>
-            <div className="h-[45vh] w-full min-h-[400px]">
+            <div className="h-[45vh] w-full min-h-[400px] touch-none">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={baseResult.data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <AreaChart data={baseResult.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="fireGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.25}/>
@@ -433,17 +445,18 @@ export default function FIRE() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#555', fontFamily: 'DM Mono' }} interval={5} />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#555', fontFamily: 'DM Mono' }} interval={Math.floor(baseResult.data.length / 6)} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#555', fontFamily: 'DM Mono' }} tickFormatter={(v) => v >= 1000000 ? `€${(v/1000000).toFixed(1)}M` : `€${(v/1000).toFixed(0)}k`} />
                   <Tooltip 
+                    trigger="click"
                     contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
                     itemStyle={{ fontSize: '12px' }}
                     formatter={(val: any) => formatCurrency(val)}
                   />
-                  <Area type="monotone" dataKey="netWorth" stroke="var(--accent)" strokeWidth={3} fillOpacity={1} fill="url(#fireGrad)" animationDuration={1000} />
+                  <Area type="monotone" dataKey="netWorth" stroke="var(--accent)" strokeWidth={3} fillOpacity={1} fill="url(#fireGrad)" animationDuration={1000} isAnimationActive={true} />
                   <ReferenceLine y={fireTarget} stroke="#F59E0B" strokeDasharray="6 6" label={{ value: 'FIRE', position: 'insideTopRight', fill: '#F59E0B', fontSize: 10, fontWeight: 'bold', fontFamily: 'DM Mono' }} />
                   {baseResult.reached && (
-                    <ReferenceLine x={baseResult.data[Math.floor(baseResult.years || 0)].date} stroke="#00E5C3" strokeDasharray="4 4" />
+                    <ReferenceLine x={baseResult.data[Math.floor(baseResult.years || 0)]?.date} stroke="#00E5C3" strokeDasharray="4 4" />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
@@ -512,6 +525,43 @@ export default function FIRE() {
             <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground border-b border-white/5 pb-4">Assumptions</h3>
             
             <div className="space-y-6">
+              {/* Core Inputs */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Target Mode</label>
+                  <select 
+                    value={fireMode}
+                    onChange={(e) => setFireMode(e.target.value as any)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                  >
+                    <option value="multiplier">25x Multiplier</option>
+                    <option value="withdrawal">Safe Withdrawal Rate</option>
+                  </select>
+                </div>
+                {fireMode === 'multiplier' ? (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Multiplier</label>
+                    <input 
+                      type="number"
+                      value={multiplier}
+                      onChange={(e) => setMultiplier(parseFloat(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">SWR %</label>
+                    <input 
+                      type="number"
+                      step="0.001"
+                      value={withdrawalRate}
+                      onChange={(e) => setWithdrawalRate(parseFloat(e.target.value))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Monthly Expenses</label>
@@ -538,32 +588,129 @@ export default function FIRE() {
                 />
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Inflation</label>
-                  <span className="text-sm font-mono font-bold">{(inflationRate * 100).toFixed(1)}%</span>
+              {/* Life Events Section */}
+              <div className="pt-4 border-t border-white/5 space-y-4">
+                <h4 className="text-[10px] font-mono uppercase text-muted-foreground/60 tracking-widest">Life Events</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skull size={12} className="text-destructive/60" />
+                      <label className="text-[10px] font-mono text-muted-foreground uppercase">Death Year</label>
+                    </div>
+                    <input 
+                      type="number"
+                      value={deathYear || ''}
+                      placeholder="e.g. 2086"
+                      onChange={(e) => setDeathYear(parseInt(e.target.value) || null)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={12} className="text-amber-500/60" />
+                      <label className="text-[10px] font-mono text-muted-foreground uppercase">Retire Year</label>
+                    </div>
+                    <input 
+                      type="number"
+                      value={forcedRetirementYear || ''}
+                      placeholder="e.g. 2050"
+                      onChange={(e) => setForcedRetirementYear(parseInt(e.target.value) || null)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
+                    />
+                  </div>
                 </div>
-                <input 
-                  type="range" min="0" max="0.10" step="0.001"
-                  value={inflationRate} 
-                  onChange={(e) => setInflationRate(parseFloat(e.target.value))}
-                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white/40"
-                />
+
+                {/* Move Abroad Toggle */}
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-4 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Plane size={14} className="text-blue-400" />
+                      <span className="text-[10px] font-mono uppercase text-foreground">Move Abroad</span>
+                    </div>
+                    <button 
+                      onClick={() => setMoveAbroadEnabled(!moveAbroadEnabled)}
+                      className={cn("w-8 h-4 rounded-full transition-colors relative", moveAbroadEnabled ? "bg-blue-400" : "bg-white/10")}
+                    >
+                      <div className={cn("absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all", moveAbroadEnabled ? "right-0.5" : "left-0.5")} />
+                    </button>
+                  </div>
+                  {moveAbroadEnabled && (
+                    <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-mono text-muted-foreground uppercase">Year</span>
+                        <input type="number" value={moveAbroadYear} onChange={(e) => setMoveAbroadYear(parseInt(e.target.value))} className="w-full bg-black/40 border-none rounded-lg p-2 text-xs font-mono" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-mono text-muted-foreground uppercase">Tax %</span>
+                        <input type="number" step="0.01" value={moveAbroadTaxRate} onChange={(e) => setMoveAbroadTaxRate(parseFloat(e.target.value))} className="w-full bg-black/40 border-none rounded-lg p-2 text-xs font-mono" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Taxation & Growth Section */}
               <div className="pt-4 border-t border-white/5 space-y-4">
+                <h4 className="text-[10px] font-mono uppercase text-muted-foreground/60 tracking-widest">Dutch Taxation</h4>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Dutch Box 3</span>
-                  <button onClick={() => setBox3Enabled(!box3Enabled)} className={cn("w-10 h-5 rounded-full transition-colors relative", box3Enabled ? "bg-accent" : "bg-white/10")}>
-                    <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", box3Enabled ? "right-1" : "left-1")} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Landmark size={14} className="text-destructive" />
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Dutch Box 3</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setShowAdvancedBox3(!showAdvancedBox3)}
+                      className="text-[9px] font-mono text-muted-foreground underline uppercase tracking-tighter"
+                    >
+                      Settings
+                    </button>
+                    <button onClick={() => setBox3Enabled(!box3Enabled)} className={cn("w-10 h-5 rounded-full transition-colors relative", box3Enabled ? "bg-accent" : "bg-white/10")}>
+                      <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", box3Enabled ? "right-1" : "left-1")} />
+                    </button>
+                  </div>
                 </div>
+
+                {showAdvancedBox3 && box3Enabled && (
+                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-4 animate-fade-in">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-mono text-muted-foreground uppercase">Model</label>
+                        <select value={box3Model} onChange={(e) => setBox3Model(e.target.value as any)} className="w-full bg-black/40 border-none rounded-lg p-2 text-[10px]">
+                          <option value="new">New (Actual Return)</option>
+                          <option value="bridging">Bridging (Old)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-mono text-muted-foreground uppercase">Tax Rate</label>
+                        <input type="number" step="0.01" value={box3TaxRate} onChange={(e) => setBox3TaxRate(parseFloat(e.target.value))} className="w-full bg-black/40 border-none rounded-lg p-2 text-[10px] font-mono" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-mono text-muted-foreground uppercase">Fiscal Partner</span>
+                      <button onClick={() => setBox3FiscalPartner(!box3FiscalPartner)} className={cn("w-8 h-4 rounded-full transition-colors relative", box3FiscalPartner ? "bg-accent" : "bg-white/10")}>
+                        <div className={cn("absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all", box3FiscalPartner ? "right-0.5" : "left-0.5")} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Growth %</span>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={14} className="text-accent" />
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Income Growth %</span>
+                  </div>
                   <button onClick={() => setGrowthEnabled(!growthEnabled)} className={cn("w-10 h-5 rounded-full transition-colors relative", growthEnabled ? "bg-accent" : "bg-white/10")}>
                     <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", growthEnabled ? "right-1" : "left-1")} />
                   </button>
                 </div>
+                {growthEnabled && (
+                   <input 
+                   type="range" min="0" max="0.10" step="0.001"
+                   value={growthRate} 
+                   onChange={(e) => setGrowthRate(parseFloat(e.target.value))}
+                   className="w-full h-1 bg-accent/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                 />
+                )}
               </div>
             </div>
           </section>

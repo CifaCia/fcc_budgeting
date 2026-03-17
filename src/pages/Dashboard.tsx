@@ -239,9 +239,9 @@ export default function Dashboard() {
             <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Wealth Growth</h3>
             <TrendingUp size={16} className="text-accent" />
           </div>
-          <div className="h-64 w-full">
+          <div className="h-64 w-full touch-none">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={snapshots}>
+              <AreaChart data={snapshots} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
@@ -257,9 +257,13 @@ export default function Dashboard() {
                   tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short' })}
                 />
                 <YAxis 
-                  hide={true}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 9, fill: '#444', fontFamily: 'DM Mono' }}
+                  tickFormatter={(val) => val >= 1000 ? `€${(val/1000).toFixed(0)}k` : `€${val}`}
                 />
                 <RechartsTooltip 
+                  trigger="click"
                   contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
                   itemStyle={{ color: '#00E5C3' }}
                   formatter={(val: any) => formatCurrency(val)}
@@ -273,6 +277,7 @@ export default function Dashboard() {
                   fillOpacity={1} 
                   fill="url(#colorNetWorth)" 
                   animationDuration={1200}
+                  isAnimationActive={true}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -398,17 +403,20 @@ export default function Dashboard() {
 
       {/* Import Sheet (Simplified Modal/Overlay) */}
       {showImport && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center px-4 pb-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setShowImport(false)}>
+        <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setShowImport(false)}>
           <div 
-            className="bg-card w-full max-w-2xl rounded-3xl p-6 space-y-8 border-t border-white/10 animate-slide-up"
+            className="bg-black w-full max-w-2xl rounded-3xl p-6 space-y-8 border border-white/10 animate-slide-up shadow-[0_-20px_50px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-center">
-              <div className="w-12 h-1.5 bg-white/10 rounded-full mb-4" />
+              <div className="w-12 h-1.5 bg-white/20 rounded-full mb-4" />
             </div>
-            <div className="space-y-4">
-              <h3 className="text-xl font-display font-bold">Update Assets</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-6">
+              <header>
+                <h3 className="text-2xl font-display font-bold text-accent">Update Assets</h3>
+                <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1">Select an engine to sync data</p>
+              </header>
+              <div className="grid grid-cols-1 gap-6 pb-8">
                 <CSVImporter onComplete={() => { fetchData(); setShowImport(false); }} />
                 <ManualTradeRepublic onComplete={() => { fetchData(); setShowImport(false); }} />
                 <ManualABNAMRO onComplete={() => { fetchData(); setShowImport(false); }} />
