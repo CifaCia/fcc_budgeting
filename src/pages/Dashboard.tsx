@@ -234,94 +234,116 @@ export default function Dashboard() {
       {/* Grid: Charts and Allocation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Net Worth Chart */}
-        <section className="bg-card p-6 rounded-2xl border-t border-white/5">
+        <section className="bg-card p-6 rounded-2xl border-t border-white/5 min-h-[350px]">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Wealth Growth</h3>
             <TrendingUp size={16} className="text-accent" />
           </div>
-          <div className="h-64 w-full touch-none">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={snapshots} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
-                <XAxis 
-                  dataKey="snapshot_date" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#666', fontFamily: 'DM Mono' }} 
-                  tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short' })}
-                />
-                <YAxis 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 9, fill: '#444', fontFamily: 'DM Mono' }}
-                  tickFormatter={(val) => val >= 1000 ? `€${(val/1000).toFixed(0)}k` : `€${val}`}
-                />
-                <RechartsTooltip 
-                  trigger="click"
-                  contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
-                  itemStyle={{ color: '#00E5C3' }}
-                  formatter={(val: any) => formatCurrency(val)}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="net_worth" 
-                  stroke="var(--accent)" 
-                  strokeWidth={3} 
-                  fillOpacity={1} 
-                  fill="url(#colorNetWorth)" 
-                  animationDuration={1200}
-                  isAnimationActive={true}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-64 w-full">
+            {snapshots.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={snapshots} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                  <XAxis 
+                    dataKey="snapshot_date" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#666', fontFamily: 'DM Mono' }} 
+                    tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short' })}
+                  />
+                  <YAxis 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 9, fill: '#444', fontFamily: 'DM Mono' }}
+                    tickFormatter={(val) => val >= 1000 ? `€${(val/1000).toFixed(0)}k` : `€${val}`}
+                  />
+                  <RechartsTooltip 
+                    trigger="click"
+                    contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
+                    itemStyle={{ color: '#00E5C3' }}
+                    formatter={(val: any) => formatCurrency(val)}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="net_worth" 
+                    stroke="var(--accent)" 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill="url(#colorNetWorth)" 
+                    animationDuration={1200}
+                    isAnimationActive={true}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl bg-white/[0.01] p-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                  <TrendingUp size={24} className="text-muted-foreground/40" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-muted-foreground">No Historical Data</p>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Upload CSV to start tracking growth</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
         {/* Allocation */}
-        <section className="bg-card p-6 rounded-2xl border-t border-white/5">
+        <section className="bg-card p-6 rounded-2xl border-t border-white/5 min-h-[350px]">
            <div className="flex items-center justify-between mb-8">
             <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Asset Allocation</h3>
             <MoreHorizontal size={16} className="text-muted-foreground" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie 
-                    data={breakdownData} 
-                    cx="50%" 
-                    cy="50%" 
-                    innerRadius={55} 
-                    outerRadius={70} 
-                    paddingAngle={8} 
-                    dataKey="value"
-                    animationBegin={0}
-                    animationDuration={1000}
-                  >
-                    {breakdownData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={ASSET_COLORS[entry.name] || ASSET_COLORS.other} stroke="none" />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+              {breakdownData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie 
+                      data={breakdownData} 
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius={55} 
+                      outerRadius={70} 
+                      paddingAngle={8} 
+                      dataKey="value"
+                      animationBegin={0}
+                      animationDuration={1000}
+                    >
+                      {breakdownData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={ASSET_COLORS[entry.name] || ASSET_COLORS.other} stroke="none" />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center rounded-full border-4 border-white/5 bg-white/[0.01]">
+                   <PieChartIcon size={20} className="text-muted-foreground/20" />
+                </div>
+              )}
             </div>
             <div className="flex flex-col justify-center space-y-3">
-              {breakdownData.sort((a,b) => b.value - a.value).map(item => (
-                <div key={item.name} className="flex justify-between items-center group">
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: ASSET_COLORS[item.name] || ASSET_COLORS.other }} />
-                    <span className="text-[11px] font-mono text-muted-foreground group-hover:text-foreground transition-colors capitalize">{item.name}</span>
+              {breakdownData.length > 0 ? (
+                breakdownData.sort((a,b) => b.value - a.value).map(item => (
+                  <div key={item.name} className="flex justify-between items-center group">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: ASSET_COLORS[item.name] || ASSET_COLORS.other }} />
+                      <span className="text-[11px] font-mono text-muted-foreground group-hover:text-foreground transition-colors capitalize">{item.name}</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold">{formatCurrency(item.value)}</span>
                   </div>
-                  <span className="text-[11px] font-mono font-bold">{formatCurrency(item.value)}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-[10px] font-mono text-muted-foreground/40 italic">Sync data to see breakdown</p>
+              )}
             </div>
           </div>
         </section>
@@ -401,27 +423,33 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Import Sheet (Simplified Modal/Overlay) */}
+      {/* Import Sheet (Improved Modal) */}
       {showImport && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setShowImport(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={() => setShowImport(false)}>
           <div 
-            className="bg-black w-full max-w-2xl rounded-3xl p-6 space-y-8 border border-white/10 animate-slide-up shadow-[0_-20px_50px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]"
+            className="bg-[#0A0A0A] w-full max-w-xl rounded-[2.5rem] border border-white/10 animate-slide-up shadow-[0_0_100px_rgba(0,0,0,1)] overflow-hidden flex flex-col max-h-[85vh]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-center">
-              <div className="w-12 h-1.5 bg-white/20 rounded-full mb-4" />
+            {/* Drag Handle Decor */}
+            <div className="flex justify-center pt-4 pb-2">
+              <div className="w-12 h-1.5 bg-white/10 rounded-full" />
             </div>
-            <div className="space-y-6">
-              <header>
-                <h3 className="text-2xl font-display font-bold text-accent">Update Assets</h3>
-                <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1">Select an engine to sync data</p>
+
+            <div className="p-8 pt-4 overflow-y-auto custom-scrollbar">
+              <header className="mb-8">
+                <h3 className="text-3xl font-display font-bold text-accent tracking-tight">Sync Data</h3>
+                <p className="text-xs text-muted-foreground font-mono uppercase tracking-[0.2em] mt-2">Update your financial engines</p>
               </header>
-              <div className="grid grid-cols-1 gap-6 pb-8">
+              
+              <div className="space-y-8 pb-4">
                 <CSVImporter onComplete={() => { fetchData(); setShowImport(false); }} />
                 <ManualTradeRepublic onComplete={() => { fetchData(); setShowImport(false); }} />
                 <ManualABNAMRO onComplete={() => { fetchData(); setShowImport(false); }} />
               </div>
             </div>
+            
+            {/* Bottom Safe Area Padding */}
+            <div className="h-6 shrink-0" />
           </div>
         </div>
       )}
