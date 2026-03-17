@@ -278,7 +278,6 @@ export default function FIRE() {
     let noTaxReachedYears: number | null = null;
     let valueAtMove = 0; let hasMoved = false;
 
-    // Simulation for 60 years or until death
     const currentYearSimStart = new Date().getFullYear();
     const maxYears = deathYear ? Math.max(1, deathYear - currentYearSimStart) : 60;
 
@@ -319,8 +318,8 @@ export default function FIRE() {
         cshPess = cshPess * (1 + mrrCash); etfPess = etfPess * (1 + mrrEtfPess) + monthlyContrib;
 
         if (!reachedDate) {
-          const nwBeforeExpensesNoTax = cshNoTax + etfNoTax;
-          if (nwBeforeExpensesNoTax >= target && !noTaxReachedYears) noTaxReachedYears = year + (month + 1) / 12;
+          const nwCurrentNoTax = cshNoTax + etfNoTax;
+          if (nwCurrentNoTax >= target && !noTaxReachedYears) noTaxReachedYears = year + (month + 1) / 12;
           if ((csh + etf) >= target) {
             reachedDate = currentMonthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
             reachedYears = year + (month + 1) / 12;
@@ -639,9 +638,9 @@ export default function FIRE() {
                     <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">SWR %</label>
                     <input 
                       type="number"
-                      step="0.001"
-                      value={withdrawalRate}
-                      onChange={(e) => setWithdrawalRate(parseFloat(e.target.value))}
+                      step="0.1"
+                      value={withdrawalRate * 100}
+                      onChange={(e) => setWithdrawalRate(parseFloat(e.target.value) / 100)}
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-foreground focus:ring-accent"
                     />
                   </div>
@@ -663,14 +662,27 @@ export default function FIRE() {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Market Return</label>
+                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Market Return (%)</label>
                   <span className="text-sm font-mono font-bold text-accent">{(nominalReturn * 100).toFixed(1)}%</span>
                 </div>
                 <input 
-                  type="range" min="0" max="0.15" step="0.001"
-                  value={nominalReturn} 
-                  onChange={(e) => setNominalReturn(parseFloat(e.target.value))}
+                  type="range" min="0" max="20" step="0.1"
+                  value={nominalReturn * 100} 
+                  onChange={(e) => setNominalReturn(parseFloat(e.target.value) / 100)}
                   className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Inflation (%)</label>
+                  <span className="text-sm font-mono font-bold">{(inflationRate * 100).toFixed(1)}%</span>
+                </div>
+                <input 
+                  type="range" min="0" max="15" step="0.1"
+                  value={inflationRate * 100} 
+                  onChange={(e) => setInflationRate(parseFloat(e.target.value) / 100)}
+                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white/40"
                 />
               </div>
 
@@ -728,7 +740,7 @@ export default function FIRE() {
                       </div>
                       <div className="space-y-1">
                         <span className="text-[9px] font-mono text-muted-foreground uppercase">Tax %</span>
-                        <input type="number" step="0.01" value={moveAbroadTaxRate} onChange={(e) => setMoveAbroadTaxRate(parseFloat(e.target.value))} className="w-full bg-black/40 border-none rounded-lg p-2 text-xs font-mono" />
+                        <input type="number" step="0.1" value={moveAbroadTaxRate * 100} onChange={(e) => setMoveAbroadTaxRate(parseFloat(e.target.value) / 100)} className="w-full bg-black/40 border-none rounded-lg p-2 text-xs font-mono" />
                       </div>
                     </div>
                   )}
@@ -767,8 +779,8 @@ export default function FIRE() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-mono text-muted-foreground uppercase">Tax Rate</label>
-                        <input type="number" step="0.01" value={box3TaxRate} onChange={(e) => setBox3TaxRate(parseFloat(e.target.value))} className="w-full bg-black/40 border-none rounded-lg p-2 text-[10px] font-mono" />
+                        <label className="text-[9px] font-mono text-muted-foreground uppercase">Tax Rate (%)</label>
+                        <input type="number" step="0.1" value={box3TaxRate * 100} onChange={(e) => setBox3TaxRate(parseFloat(e.target.value) / 100)} className="w-full bg-black/40 border-none rounded-lg p-2 text-[10px] font-mono" />
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -783,19 +795,24 @@ export default function FIRE() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <TrendingUp size={14} className="text-accent" />
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Income Growth %</span>
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Growth (%)</span>
                   </div>
                   <button onClick={() => setGrowthEnabled(!growthEnabled)} className={cn("w-10 h-5 rounded-full transition-colors relative", growthEnabled ? "bg-accent" : "bg-white/10")}>
                     <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", growthEnabled ? "right-1" : "left-1")} />
                   </button>
                 </div>
                 {growthEnabled && (
-                   <input 
-                   type="range" min="0" max="0.10" step="0.001"
-                   value={growthRate} 
-                   onChange={(e) => setGrowthRate(parseFloat(e.target.value))}
-                   className="w-full h-1 bg-accent/20 rounded-lg appearance-none cursor-pointer accent-accent"
-                 />
+                   <div className="space-y-2">
+                     <div className="flex justify-between">
+                       <span className="text-[10px] font-mono text-accent">{(growthRate * 100).toFixed(1)}%</span>
+                     </div>
+                     <input 
+                       type="range" min="0" max="15" step="0.1"
+                       value={growthRate * 100} 
+                       onChange={(e) => setGrowthRate(parseFloat(e.target.value) / 100)}
+                       className="w-full h-1 bg-accent/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                     />
+                   </div>
                 )}
               </div>
             </div>
