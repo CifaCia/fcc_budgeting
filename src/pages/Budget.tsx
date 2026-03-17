@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency } from '@/lib/currency';
+import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { 
   Plus, Trash2, Save, TrendingUp, Wallet, ArrowRightLeft, 
-  Check, X, AlertCircle, ChevronLeft, ChevronRight 
+  Check, X, AlertCircle, ChevronLeft, ChevronRight, PieChart,
+  Target, Info, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +34,6 @@ export default function Budget() {
     if (!user) return;
     setLoading(true);
 
-    // 1. Fetch Budget Items
     const { data: budgetData } = await supabase
       .from('budget_items')
       .select('*')
@@ -40,7 +41,6 @@ export default function Budget() {
       .order('category', { ascending: true });
     setBudgetItems(budgetData || []);
 
-    // 2. Fetch Monthly Income from Settings
     const { data: settingsData } = await supabase
       .from('user_settings')
       .select('monthly_income')
@@ -48,7 +48,6 @@ export default function Budget() {
       .maybeSingle();
     setMonthlyIncome(Number(settingsData?.monthly_income) || 0);
 
-    // 3. Fetch Actual Spend for selected month
     const startOfMonth = `${selectedMonth}-01`;
     const lastDay = new Date(new Date(startOfMonth).getFullYear(), new Date(startOfMonth).getMonth() + 1, 0).getDate();
     const endOfMonth = `${selectedMonth}-${lastDay}`;
@@ -62,14 +61,12 @@ export default function Budget() {
 
     const totals: Record<string, number> = {};
     (transData || []).forEach(t => {
-      // We only care about expenses (negative amounts) for the budget comparison
       if (t.amount < 0) {
         const cat = t.category || 'Uncategorized';
         totals[cat] = (totals[cat] || 0) + Math.abs(t.amount);
       }
     });
     setActualSpend(totals);
-
     setLoading(false);
   };
 
@@ -125,10 +122,8 @@ export default function Budget() {
   // Calculations
   const totalBudgeted = budgetItems.reduce((sum, i) => sum + i.expected_monthly, 0);
   const totalActual = Object.values(actualSpend).reduce((sum, v) => sum + v, 0);
-  
   const expectedSaving = monthlyIncome - totalBudgeted;
   const expectedSavingRate = monthlyIncome > 0 ? (expectedSaving / monthlyIncome) * 100 : 0;
-  
   const actualSaving = monthlyIncome - totalActual;
   const actualSavingRate = monthlyIncome > 0 ? (actualSaving / monthlyIncome) * 100 : 0;
 
@@ -138,200 +133,213 @@ export default function Budget() {
     setSelectedMonth(date.toISOString().slice(0, 7));
   };
 
-  if (loading) return <div className="flex items-center justify-center h-full">Loading Budget...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-muted-foreground font-mono text-sm animate-pulse">Synchronizing Budget...</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-8 pb-12 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 pb-32 animate-fade-in">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Budget Tracker</h1>
-          <p className="text-gray-500">Plan your expenses and monitor saving rates.</p>
+          <h1 className="text-3xl font-display font-bold tracking-tight">Budget Planner</h1>
+          <p className="text-muted-foreground text-sm font-medium">Control your cash flow and optimize savings.</p>
         </div>
-        <div className="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 p-1">
-          <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-50 rounded-md"><ChevronLeft size={18} /></button>
-          <span className="px-4 font-bold text-sm min-w-[120px] text-center">
-            {new Date(selectedMonth + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-          </span>
-          <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-50 rounded-md"><ChevronRight size={18} /></button>
+        
+        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
+          <button onClick={() => changeMonth(-1)} className="p-2.5 text-muted-foreground hover:text-foreground transition-colors"><ChevronLeft size={20} /></button>
+          <div className="px-4 py-1 flex flex-col items-center min-w-[140px]">
+            <span className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Monitoring</span>
+            <span className="text-sm font-bold font-display uppercase tracking-tight">
+              {new Date(selectedMonth + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+          <button onClick={() => changeMonth(1)} className="p-2.5 text-muted-foreground hover:text-foreground transition-colors"><ChevronRight size={20} /></button>
         </div>
-      </div>
+      </header>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center">
-            <TrendingUp size={14} className="mr-1 text-green-500" /> Monthly Income
-          </h3>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold">€</span>
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={14} className="text-accent" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Monthly Income</span>
+          </div>
+          <div className="flex items-baseline gap-2 group">
+            <span className="text-2xl font-mono font-bold text-accent">€</span>
             <input 
               type="number"
               value={monthlyIncome}
               onChange={(e) => handleUpdateIncome(e.target.value)}
-              className="text-2xl font-bold w-full bg-transparent border-none p-0 focus:ring-0"
+              className="text-4xl font-mono font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-foreground"
             />
           </div>
-          <p className="text-xs text-gray-400 mt-2">Adjust your expected take-home pay.</p>
+          <p className="text-[10px] text-muted-foreground mt-4 font-mono uppercase">Adjustable input</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center">
-            <Wallet size={14} className="mr-1 text-indigo-500" /> Savings Target
-          </h3>
-          <div className="text-2xl font-bold">{formatCurrency(expectedSaving)}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">
-              {expectedSavingRate.toFixed(1)}% Goal
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-100">
+          <div className="flex items-center gap-2 mb-4">
+            <Target size={14} className="text-blue-400" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Savings Target</span>
+          </div>
+          <div className="text-4xl font-mono font-bold">
+            <AnimatedNumber value={expectedSaving} formatter={formatCurrency} />
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20">
+              {expectedSavingRate.toFixed(1)}% GOAL
             </span>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center">
-            <ArrowRightLeft size={14} className="mr-1 text-pink-500" /> Actual Savings
-          </h3>
-          <div className={cn("text-2xl font-bold", actualSaving >= expectedSaving ? "text-green-600" : "text-amber-600")}>
-            {formatCurrency(actualSaving)}
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-200 shadow-2xl">
+          <div className="flex items-center gap-2 mb-4">
+            <PieChart size={14} className="text-amber-500" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Actual Savings</span>
           </div>
-          <div className="mt-2 flex items-center gap-2">
+          <div className={cn("text-4xl font-mono font-bold", actualSaving >= expectedSaving ? "text-accent" : "text-destructive")}>
+            <AnimatedNumber value={actualSaving} formatter={formatCurrency} />
+          </div>
+          <div className="mt-4 flex items-center gap-2">
             <span className={cn(
-              "text-xs font-bold px-2 py-0.5 rounded",
-              actualSavingRate >= expectedSavingRate ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-600"
+              "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border",
+              actualSavingRate >= expectedSavingRate ? "bg-accent/10 text-accent border-accent/20" : "bg-destructive/10 text-destructive border-destructive/20"
             )}>
-              {actualSavingRate.toFixed(1)}% Realized
+              {actualSavingRate.toFixed(1)}% REALIZED
             </span>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Section 1: Budget Definition */}
-        <section className="bg-white shadow-sm border border-gray-100 rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="text-lg font-bold text-gray-900">Define Budget</h2>
+        {/* Definition */}
+        <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Define Allocation</h2>
+            <div className="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded text-muted-foreground uppercase">
+              Total: {formatCurrency(totalBudgeted)}
+            </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50/30">
+            <table className="w-full">
+              <thead className="bg-white/[0.02]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Monthly</th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase">Fixed?</th>
-                  <th className="px-6 py-3 text-right"></th>
+                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Plan</th>
+                  <th className="px-6 py-4 text-center text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-right"></th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {budgetItems.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+              <tbody className="divide-y divide-white/5">
+                {budgetItems.map((item, idx) => (
+                  <tr key={item.id} className="hover:bg-white/[0.01] transition-colors group animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
                     {editingId === item.id ? (
                       <>
-                        <td className="px-6 py-3"><input className="w-full border rounded px-2 py-1 text-sm" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} /></td>
-                        <td className="px-6 py-3"><input type="number" className="w-full border rounded px-2 py-1 text-sm" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} /></td>
-                        <td className="px-6 py-3 text-center"><input type="checkbox" checked={editValue?.is_fixed} onChange={e => setEditValue(v => v ? {...v, is_fixed: e.target.checked} : null)} /></td>
-                        <td className="px-6 py-3 text-right">
+                        <td className="px-6 py-4"><input className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} /></td>
+                        <td className="px-6 py-4"><input type="number" className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent font-mono" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} /></td>
+                        <td className="px-6 py-4 text-center"><input type="checkbox" checked={editValue?.is_fixed} onChange={e => setEditValue(v => v ? {...v, is_fixed: e.target.checked} : null)} className="accent-accent" /></td>
+                        <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
-                            <button onClick={saveEdit} className="text-green-600"><Check size={16} /></button>
-                            <button onClick={() => setEditingId(null)} className="text-red-600"><X size={16} /></button>
+                            <button onClick={saveEdit} className="text-accent hover:scale-110 transition-transform"><Check size={18} /></button>
+                            <button onClick={() => setEditingId(null)} className="text-destructive hover:scale-110 transition-transform"><X size={18} /></button>
                           </div>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900 cursor-pointer" onClick={() => startEdit(item)}>{item.category}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 cursor-pointer" onClick={() => startEdit(item)}>{formatCurrency(item.expected_monthly)}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase", item.is_fixed ? "bg-blue-50 text-blue-600" : "bg-gray-50 text-gray-500")}>
+                        <td className="px-6 py-5 text-sm font-bold cursor-pointer" onClick={() => startEdit(item)}>{item.category}</td>
+                        <td className="px-6 py-5 text-sm font-mono font-bold text-muted-foreground cursor-pointer" onClick={() => startEdit(item)}>{formatCurrency(item.expected_monthly)}</td>
+                        <td className="px-6 py-5 text-center">
+                          <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border", item.is_fixed ? "bg-white/10 text-foreground border-white/20" : "bg-accent/10 text-accent border-accent/20")}>
                             {item.is_fixed ? 'Fixed' : 'Var'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleDelete(item.id)} className="text-gray-300 hover:text-red-600 transition-colors"><Trash2 size={16} /></button>
+                        <td className="px-6 py-5 text-right">
+                          <button onClick={() => handleDelete(item.id)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
                         </td>
                       </>
                     )}
                   </tr>
                 ))}
-                {/* Add Row */}
-                <tr className="bg-gray-50/30">
-                  <td className="px-6 py-3"><input placeholder="New Category..." className="w-full border-gray-200 rounded px-2 py-1 text-sm" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} /></td>
-                  <td className="px-6 py-3"><input type="number" placeholder="0.00" className="w-full border-gray-200 rounded px-2 py-1 text-sm" value={newItem.amount} onChange={e => setNewItem({...newItem, amount: e.target.value})} /></td>
-                  <td className="px-6 py-3 text-center"><input type="checkbox" checked={newItem.isFixed} onChange={e => setNewItem({...newItem, isFixed: e.target.checked})} /></td>
-                  <td className="px-6 py-3 text-right">
-                    <button onClick={handleAddRow} className="bg-indigo-600 text-white p-1.5 rounded-md hover:bg-indigo-700 transition-colors"><Plus size={16} /></button>
+                {/* Add Inline */}
+                <tr className="bg-white/[0.02]">
+                  <td className="px-6 py-4"><input placeholder="Add Category..." className="w-full bg-transparent border-none p-0 text-xs placeholder:text-muted-foreground/30 focus:ring-0" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} /></td>
+                  <td className="px-6 py-4"><input type="number" placeholder="0.00" className="w-full bg-transparent border-none p-0 text-xs font-mono placeholder:text-muted-foreground/30 focus:ring-0" value={newItem.amount} onChange={e => setNewItem({...newItem, amount: e.target.value})} /></td>
+                  <td className="px-6 py-4 text-center"><input type="checkbox" checked={newItem.isFixed} onChange={e => setNewItem({...newItem, isFixed: e.target.checked})} className="accent-accent" /></td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={handleAddRow} className="text-accent p-1.5 hover:scale-110 transition-all"><Plus size={20} /></button>
                   </td>
                 </tr>
               </tbody>
-              <tfoot>
-                <tr className="bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 uppercase">Total Budgeted</td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(totalBudgeted)}</td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </section>
 
-        {/* Section 2: Monthly Comparison */}
-        <section className="bg-white shadow-sm border border-gray-100 rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="text-lg font-bold text-gray-900">Monthly Actuals</h2>
+        {/* Comparison */}
+        <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden h-fit">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Monthly Status</h2>
+            <div className="text-[10px] font-mono font-bold bg-destructive/10 px-2 py-1 rounded text-destructive uppercase">
+              Actual: {formatCurrency(totalActual)}
+            </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50/30">
+            <table className="w-full">
+              <thead className="bg-white/[0.02]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Budget</th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Actual</th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Diff</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Diff</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-white/5">
                 {budgetItems.map(item => {
                   const actual = actualSpend[item.category] || 0;
                   const diff = item.expected_monthly - actual;
+                  const progress = Math.min(100, (actual / item.expected_monthly) * 100);
+                  
                   return (
-                    <tr key={`actual-${item.id}`} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.category}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500 text-right">{formatCurrency(item.expected_monthly)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">{formatCurrency(actual)}</td>
+                    <tr key={`actual-${item.id}`} className="hover:bg-white/[0.01] transition-colors group">
+                      <td className="px-6 py-5">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-bold">{item.category}</span>
+                          <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
+                            <div className={cn("h-full transition-all duration-700", diff >= 0 ? "bg-accent" : "bg-destructive")} style={{ width: `${progress}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-mono font-bold">{formatCurrency(actual)}</span>
+                          <span className="text-[9px] font-mono text-muted-foreground tracking-tighter uppercase">of {formatCurrency(item.expected_monthly)}</span>
+                        </div>
+                      </td>
                       <td className={cn(
-                        "px-6 py-4 text-sm text-right font-bold",
-                        diff >= 0 ? "text-green-600" : "text-red-600"
+                        "px-6 py-5 text-right text-xs font-mono font-bold",
+                        diff >= 0 ? "text-accent" : "text-destructive"
                       )}>
-                        {diff > 0 ? '+' : ''}{formatCurrency(diff)}
+                        {diff >= 0 ? <ArrowUpRight size={14} className="inline mr-1" /> : <ArrowDownRight size={14} className="inline mr-1" />}
+                        {formatCurrency(Math.abs(diff))}
                       </td>
                     </tr>
                   );
                 })}
-                {/* Uncategorized actuals */}
+                {/* Uncategorized */}
                 {Object.keys(actualSpend).filter(cat => !budgetItems.some(bi => bi.category === cat)).map(cat => (
-                  <tr key={`uncat-${cat}`} className="bg-amber-50/30">
-                    <td className="px-6 py-4 text-sm italic text-amber-700">{cat}*</td>
-                    <td className="px-6 py-4 text-sm text-gray-400 text-right">{formatCurrency(0)}</td>
-                    <td className="px-6 py-4 text-sm text-amber-700 text-right font-medium">{formatCurrency(actualSpend[cat])}</td>
-                    <td className="px-6 py-4 text-sm text-red-600 text-right font-bold">-{formatCurrency(actualSpend[cat])}</td>
+                  <tr key={`uncat-${cat}`} className="bg-destructive/5">
+                    <td className="px-6 py-4 text-xs italic text-destructive font-medium">{cat}</td>
+                    <td className="px-6 py-4 text-right text-xs font-mono font-bold text-destructive">{formatCurrency(actualSpend[cat])}</td>
+                    <td className="px-6 py-4 text-right text-xs font-mono font-bold text-destructive">-{formatCurrency(actualSpend[cat])}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 uppercase">Total Expenses</td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-500 text-right">{formatCurrency(totalBudgeted)}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">{formatCurrency(totalActual)}</td>
-                  <td className={cn(
-                    "px-6 py-4 text-sm font-bold text-right",
-                    (totalBudgeted - totalActual) >= 0 ? "text-green-600" : "text-red-600"
-                  )}>
-                    {formatCurrency(totalBudgeted - totalActual)}
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
-          <div className="p-4 bg-gray-50 text-[10px] text-gray-400">
-            * Items with asterisk are transactions not matching any defined budget category.
+          <div className="p-4 bg-white/[0.02] flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
+            <Info size={14} className="text-accent" />
+            <span>Uncategorized expenses are highlighted in red.</span>
           </div>
         </section>
       </div>

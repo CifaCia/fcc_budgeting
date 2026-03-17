@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { AlertTriangle, RefreshCcw, Home, Percent, Euro, Save, Tag, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Home, Percent, Euro, Save, Tag, Plus, Trash2, Mail, Calendar, Bell, Send, ArrowRightLeft, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CSVSource } from '@/lib/csvParsers';
 
@@ -13,6 +13,7 @@ export default function Settings() {
   const [sourceToWipe, setSourceToWipe] = useState<CSVSource | 'all'>('all');
 
   const [propertySettings, setPropertySettings] = useState({ value: 0, ownership: 50, debtFree: 0 });
+  const [reminderSettings, setReminderSettings] = useState({ email: '', day: 1, enabled: false });
   const [mappings, setCategoryMappings] = useState<Record<string, string>>({});
   const [newMapping, setNewMapping] = useState({ keyword: '', category: '' });
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -31,6 +32,11 @@ export default function Settings() {
           value: Number(settings.property_value) || 0,
           ownership: (Number(settings.property_ownership_pct) || 0.5) * 100,
           debtFree: (Number(settings.property_debt_free_pct) || 0) * 100,
+        });
+        setReminderSettings({
+          email: settings.reminder_email || user.email || '',
+          day: settings.reminder_day_of_month || 1,
+          enabled: settings.reminders_enabled || false,
         });
         setCategoryMappings(settings.category_mappings || {});
       }
@@ -92,6 +98,19 @@ export default function Settings() {
     setLoading(false);
   };
 
+  const updateReminderSettings = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { error } = await supabase.from('user_settings').upsert({
+      user_id: user.id,
+      reminder_email: reminderSettings.email,
+      reminder_day_of_month: reminderSettings.day,
+      reminders_enabled: reminderSettings.enabled,
+    }, { onConflict: 'user_id' });
+    if (!error) setMessage({ type: 'success', text: 'Reminder settings updated.' });
+    setLoading(false);
+  };
+
   const wipeData = async () => {
     if (!user) return;
     setLoading(true);
@@ -104,120 +123,164 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500">Customize your finance tracking rules.</p>
-      </div>
+    <div className="max-w-3xl mx-auto space-y-8 pb-32 animate-fade-in">
+      <header>
+        <h1 className="text-3xl font-display font-bold tracking-tight">System Settings</h1>
+        <p className="text-muted-foreground text-sm font-medium">Fine-tune your financial engine.</p>
+      </header>
 
       {message && (
-        <div className={cn("p-4 rounded-md text-sm font-medium border", message.type === 'success' ? "bg-green-50 text-green-800 border-green-200" : "bg-red-50 text-red-800 border-red-200")}>
-          {message.text}
+        <div className={cn(
+          "p-4 rounded-2xl text-xs font-mono font-bold tracking-tight border animate-slide-up",
+          message.type === 'success' ? "bg-accent/10 text-accent border-accent/20" : "bg-destructive/10 text-destructive border-destructive/20"
+        )}>
+          {message.text.toUpperCase()}
         </div>
       )}
 
-      {/* Category Mappings Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Tag className="mr-2 h-5 w-5 text-indigo-600" />
-            Category Auto-Matching
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">Map keywords in descriptions to specific budget categories.</p>
+      {/* Category Mappings */}
+      <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Tag size={18} className="text-accent" />
+            <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Auto-Matching</h2>
+          </div>
         </div>
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+        <div className="p-6 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input 
               placeholder="Keyword (e.g. Netflix)" 
-              className="rounded-md border-gray-300 p-2 text-sm border"
+              className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:ring-accent focus:border-accent text-foreground"
               value={newMapping.keyword}
               onChange={e => setNewMapping({...newMapping, keyword: e.target.value})}
             />
             <select 
-              className="rounded-md border-gray-300 p-2 text-sm border"
+              className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:ring-accent focus:border-accent text-foreground"
               value={newMapping.category}
               onChange={e => setNewMapping({...newMapping, category: e.target.value})}
             >
-              <option value="">Select Category...</option>
+              <option value="">Category...</option>
               {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
               <option value="Uncategorized">Uncategorized</option>
             </select>
-            <button 
-              onClick={addMapping}
-              className="bg-indigo-600 text-white rounded-md text-sm font-bold flex items-center justify-center hover:bg-indigo-700"
-            >
-              <Plus size={16} className="mr-1" /> Add Rule
+            <button onClick={addMapping} className="bg-accent text-black rounded-xl font-mono font-bold text-xs uppercase tracking-widest hover:scale-[1.02] transition-transform h-12">
+              Add Rule
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {Object.entries(mappings).map(([kw, cat]) => (
-              <div key={kw} className="flex items-center justify-between p-3 border border-gray-50 rounded-lg hover:bg-gray-50/50">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-700">"{kw}"</span>
-                  <ArrowRightLeft size={12} className="text-gray-300" />
-                  <span className="text-sm font-bold text-indigo-600">{cat}</span>
+              <div key={kw} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl group animate-fade-in">
+                <div className="flex items-center gap-6">
+                  <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">"{kw}"</span>
+                  <ArrowRightLeft size={12} className="text-white/20" />
+                  <span className="text-xs font-bold text-accent uppercase tracking-tight">{cat}</span>
                 </div>
-                <button onClick={() => removeMapping(kw)} className="text-gray-300 hover:text-red-600 transition-colors">
+                <button onClick={() => removeMapping(kw)} className="text-white/20 hover:text-destructive transition-colors">
                   <Trash2 size={16} />
                 </button>
               </div>
             ))}
-            {Object.keys(mappings).length === 0 && <p className="text-sm text-gray-400 text-center py-4 italic">No mapping rules defined yet.</p>}
+            {Object.keys(mappings).length === 0 && <p className="text-xs text-muted-foreground font-mono italic text-center py-4">No mapping rules defined yet.</p>}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Property Sections */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center"><Home className="mr-2 h-5 w-5 text-pink-600" /> Property Market Value</h2>
+      {/* Real Estate */}
+      <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
+        <div className="p-6 border-b border-white/5 flex items-center gap-3">
+          <Home size={18} className="text-blue-400" />
+          <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Real Estate</h2>
         </div>
-        <div className="p-6 flex flex-col md:flex-row items-end gap-4">
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center"><Euro size={12} className="mr-1" /> Market Price</label>
-            <input type="number" value={propertySettings.value} onChange={(e) => setPropertySettings({...propertySettings, value: parseFloat(e.target.value)})} className="w-full rounded-md border-gray-300 p-2 border" />
-          </div>
-          <button onClick={updatePropertyValue} className="px-6 py-2 bg-pink-600 text-white rounded-md font-medium hover:bg-pink-700 flex items-center"><Save size={16} className="mr-2" /> Update Value</button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center"><Percent className="mr-2 h-5 w-5 text-indigo-600" /> Mortgage & Ownership</h2>
-        </div>
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">My Ownership %</label><input type="number" value={propertySettings.ownership} onChange={(e) => setPropertySettings({...propertySettings, ownership: parseFloat(e.target.value)})} className="w-full rounded-md border-gray-300 p-2 border" /></div>
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Current Debt-Free %</label><input type="number" step="0.01" value={propertySettings.debtFree} onChange={(e) => setPropertySettings({...propertySettings, debtFree: parseFloat(e.target.value)})} className="w-full rounded-md border-gray-300 p-2 border" /></div>
-          </div>
-          <button onClick={updatePropertyEquity} className="w-full py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 flex items-center justify-center"><Save size={16} className="mr-2" /> Save Equity Data</button>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
-        <div className="p-6 border-b border-red-50 bg-red-50/50">
-          <h2 className="text-lg font-semibold text-red-900 flex items-center"><AlertTriangle className="mr-2 h-5 w-5" /> Danger Zone</h2>
-        </div>
-        <div className="p-6 space-y-6">
-          <div className="p-4 border border-red-100 rounded-lg bg-red-50/30 space-y-4">
-            <h3 className="text-sm font-bold text-red-900 uppercase">Surgical Wipe</h3>
-            <div className="flex flex-col md:flex-row gap-4">
-              <select value={sourceToWipe} onChange={(e) => setSourceToWipe(e.target.value as any)} className="flex-1 rounded-md border-gray-300 p-2 border sm:text-sm">
-                <option value="all">WIPE EVERYTHING</option>
-                <option value="degiro">DEGIRO</option>
-                <option value="abn_amro_checking">ABN AMRO Checking</option>
-                <option value="abn_amro_savings">ABN AMRO Savings</option>
-                <option value="trade_republic">Trade Republic</option>
-              </select>
-              {!confirmWipe ? <button onClick={() => setConfirmWipe(true)} className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700">Wipe Data</button> : <div className="flex items-center space-x-2"><button onClick={wipeData} className="bg-red-700 text-white px-3 py-1 rounded text-xs font-bold">YES</button><button onClick={() => setConfirmWipe(false)} className="bg-gray-200 px-3 py-1 rounded text-xs font-bold">NO</button></div>}
+        <div className="p-6 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <label className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">Market Value</label>
+              <div className="flex items-center gap-3">
+                <input type="number" value={propertySettings.value} onChange={(e) => setPropertySettings({...propertySettings, value: parseFloat(e.target.value)})} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full font-mono text-sm focus:ring-accent" />
+                <button onClick={updatePropertyValue} className="p-3 bg-white/5 border border-white/10 rounded-xl hover:text-accent transition-colors"><Save size={20} /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">Ownership %</label>
+                <input type="number" value={propertySettings.ownership} onChange={(e) => setPropertySettings({...propertySettings, ownership: parseFloat(e.target.value)})} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full font-mono text-sm focus:ring-accent" />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">Debt-Free %</label>
+                <input type="number" step="0.01" value={propertySettings.debtFree} onChange={(e) => setPropertySettings({...propertySettings, debtFree: parseFloat(e.target.value)})} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full font-mono text-sm focus:ring-accent" />
+              </div>
             </div>
           </div>
+          <button onClick={updatePropertyEquity} className="w-full h-12 bg-blue-400 text-black rounded-xl font-mono font-bold text-xs uppercase tracking-widest">
+            Sync Equity State
+          </button>
         </div>
-      </div>
+      </section>
+
+      {/* Reminders */}
+      <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
+        <div className="p-6 border-b border-white/5 flex items-center gap-3">
+          <Bell size={18} className="text-amber-500" />
+          <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Notification Engine</h2>
+        </div>
+        <div className="p-6 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <label className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">Reminder Email</label>
+              <input type="email" value={reminderSettings.email} onChange={(e) => setReminderSettings({...reminderSettings, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full font-mono text-sm focus:ring-accent" />
+            </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">Scheduled Day</label>
+              <select value={reminderSettings.day} onChange={(e) => setReminderSettings({...reminderSettings, day: parseInt(e.target.value)})} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full font-mono text-sm focus:ring-accent">
+                {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d} value={d} className="bg-black text-white">{d}</option>)}
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setReminderSettings({...reminderSettings, enabled: !reminderSettings.enabled})} className={cn("w-10 h-5 rounded-full transition-colors relative", reminderSettings.enabled ? "bg-accent" : "bg-white/10")}>
+                <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", reminderSettings.enabled ? "right-1" : "left-1")} />
+              </button>
+              <span className="text-xs font-bold text-foreground uppercase tracking-tight">Active Reminders</span>
+            </div>
+            <button className="text-[10px] font-mono font-bold text-accent uppercase tracking-widest">Test Pulse</button>
+          </div>
+          
+          <button onClick={updateReminderSettings} className="w-full h-12 bg-accent text-black rounded-xl font-mono font-bold text-xs uppercase tracking-widest">
+            Lock Configuration
+          </button>
+        </div>
+      </section>
+
+      {/* Danger Zone */}
+      <section className="bg-destructive/5 rounded-2xl border border-destructive/10 overflow-hidden">
+        <div className="p-6 border-b border-destructive/10 flex items-center gap-3">
+          <ShieldAlert size={18} className="text-destructive" />
+          <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-destructive">Danger Zone</h2>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <select value={sourceToWipe} onChange={(e) => setSourceToWipe(e.target.value as any)} className="bg-white/5 border border-destructive/20 rounded-xl px-4 py-3 flex-1 font-mono text-xs text-destructive focus:ring-destructive">
+              <option value="all" className="bg-black">ERASE ENTIRE SYSTEM</option>
+              <option value="degiro" className="bg-black">WIPE DEGIRO ONLY</option>
+              <option value="abn_amro_checking" className="bg-black">WIPE ABN AMRO ONLY</option>
+              <option value="trade_republic" className="bg-black">WIPE TRADE REPUBLIC ONLY</option>
+            </select>
+            {!confirmWipe ? (
+              <button onClick={() => setConfirmWipe(true)} className="bg-destructive text-white rounded-xl px-8 h-12 font-mono font-bold text-xs uppercase tracking-widest hover:bg-destructive/80 transition-colors">
+                Initialize Wipe
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button onClick={wipeData} className="bg-destructive text-white rounded-xl px-6 h-12 font-mono font-bold text-xs uppercase">YES, DELETE</button>
+                <button onClick={() => setConfirmWipe(false)} className="bg-white/5 text-foreground rounded-xl px-6 h-12 font-mono font-bold text-xs uppercase">ABORT</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
-
-import { ArrowRightLeft } from 'lucide-react';

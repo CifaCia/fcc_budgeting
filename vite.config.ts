@@ -8,22 +8,52 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.svg', 'icons.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'FCC Budgeting',
-        short_name: 'Budget',
-        description: 'Personal Finance and FIRE Tracker',
-        theme_color: '#ffffff',
+        name: 'FinanceTracker',
+        short_name: 'Finance',
+        description: 'Premium Personal Wealth & FIRE Tracker',
+        theme_color: '#000000',
+        background_color: '#000000',
+        display: 'standalone',
+        display_override: ['window-controls-overlay'],
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'supabase-api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
         ]
       }

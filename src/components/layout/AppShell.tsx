@@ -2,6 +2,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -13,52 +14,75 @@ const navigation = [
 export default function AppShell() {
   const { user, signOut } = useAuth();
 
+  // Force dark mode for premium AMOLED experience
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex md:w-64 md:flex-col">
-        <div className="flex grow flex-col overflow-y-auto border-r border-gray-200 bg-white pt-5">
-          <div className="flex flex-shrink-0 items-center px-4 mb-5">
-            <span className="text-xl font-bold text-indigo-600">Budget App</span>
+    <div className="flex h-screen bg-background text-foreground font-sans selection:bg-accent/30 overflow-hidden">
+      {/* Desktop Sidebar (Optional, but kept and polished) */}
+      <div className="hidden md:flex md:w-64 md:flex-col shrink-0">
+        <div className="flex grow flex-col overflow-y-auto border-r border-white/5 bg-black pt-8">
+          <div className="flex flex-shrink-0 items-center px-6 mb-10">
+            <span className="text-2xl font-display font-bold tracking-tight text-accent accent-glow rounded-lg px-2 py-1">
+              FINANCE
+            </span>
           </div>
-          <div className="mt-5 flex grow flex-col">
-            <nav className="flex-1 space-y-1 px-2 pb-4">
-              {navigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  className={({ isActive }) =>
-                    cn(
-                      isActive
-                        ? 'bg-gray-100 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                      'group flex items-center rounded-md px-2 py-2 text-sm font-medium'
-                    )
-                  }
-                >
-                  <item.icon
-                    className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 group-hover:text-gray-500"
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </NavLink>
-              ))}
-            </nav>
+          <nav className="flex-1 space-y-2 px-4 pb-4">
+            {navigation.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    'group flex items-center rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-accent/10 text-accent'
+                      : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                  )
+                }
+              >
+                <item.icon
+                  className={cn(
+                    'mr-3 h-5 w-5 shrink-0 transition-colors',
+                    'group-hover:text-foreground'
+                  )}
+                  aria-hidden="true"
+                />
+                {item.name}
+              </NavLink>
+            ))}
+          </nav>
+          
+          <div className="p-4 border-t border-white/5">
+            <button
+              onClick={signOut}
+              className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Sign Out
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <header className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-1 flex-col overflow-hidden relative">
+        {/* Header - Subtle and clean */}
+        <header className="flex h-16 shrink-0 items-center justify-between px-6 md:px-10 z-10">
           <div className="md:hidden">
-            <span className="text-xl font-bold text-indigo-600">Budget App</span>
+            <span className="text-xl font-display font-bold tracking-tight text-accent">
+              FINANCE
+            </span>
           </div>
-          <div className="flex flex-1 justify-end items-center space-x-4">
-            <span className="text-sm text-gray-500 hidden sm:block">{user?.email}</span>
+          <div className="flex flex-1 justify-end items-center gap-4">
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Authenticated</span>
+              <span className="text-sm font-medium">{user?.email?.split('@')[0]}</span>
+            </div>
             <button
               onClick={signOut}
-              className="text-gray-400 hover:text-gray-500"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
               title="Sign Out"
             >
               <LogOut className="h-5 w-5" />
@@ -67,28 +91,39 @@ export default function AppShell() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8 mb-16 md:mb-0">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto px-4 pb-32 pt-2 md:px-10 md:pb-10 scroll-smooth">
+          <div className="max-w-7xl mx-auto animate-fade-in">
+            <Outlet />
+          </div>
         </main>
-      </div>
 
-      {/* Mobile Bottom Tab Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex h-16 bg-white border-t border-gray-200">
-        {navigation.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.href}
-            className={({ isActive }) =>
-              cn(
-                isActive ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-900',
-                'flex flex-1 flex-col items-center justify-center text-xs font-medium'
-              )
-            }
-          >
-            <item.icon className="h-6 w-6 mb-1" />
-            {item.name}
-          </NavLink>
-        ))}
+        {/* Mobile Bottom Tab Bar - Premium Glass Effect */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/5 safe-bottom">
+          <div className="flex h-16 items-center justify-around px-2">
+            {navigation.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    'flex flex-col items-center justify-center gap-1 transition-all duration-300 relative px-4 py-1',
+                    isActive ? 'text-accent' : 'text-muted-foreground'
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon className={cn('h-6 w-6 transition-transform duration-300', isActive && 'scale-110')} />
+                    <span className="text-[10px] font-medium tracking-wide uppercase">{item.name}</span>
+                    {isActive && (
+                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent shadow-[0_0_8px_rgba(0,229,195,0.8)]" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
