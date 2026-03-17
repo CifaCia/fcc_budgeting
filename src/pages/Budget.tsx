@@ -8,7 +8,7 @@ import {
   Plus, Trash2, TrendingUp,
   Check, X, ChevronLeft, ChevronRight, PieChart as PieChartIcon,
   Target, Info, ArrowUpRight, ArrowDownRight, LayoutDashboard,
-  Edit2, Save
+  Edit2
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer
