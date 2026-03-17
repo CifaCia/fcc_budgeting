@@ -304,9 +304,12 @@ export default function FIRE() {
 
     let csh = currentCash;
     let etf = currentEtf;
+    let cshNoTax = currentCash;
+    let etfNoTax = currentEtf;
+    let cshOpt = currentCash;
     let etfOpt = currentEtf;
+    let cshPess = currentCash;
     let etfPess = currentEtf;
-    let nwNoTax = currentNetWorth;
     
     let totalBox3Paid = 0;
     let totalContributions = 0;
@@ -318,14 +321,14 @@ export default function FIRE() {
     let reachedYears: number | null = null;
     let noTaxReachedYears: number | null = null;
 
-    // Track the baseline net worth on the day we move abroad
-    let abroadBaselineNW = 0;
-    let hasSetAbroadBaseline = false;
-
     for (let year = 0; year <= 60; year++) {
       let annualContribution = 0;
       const cshStartOfYear = csh;
       const etfStartOfYear = etf;
+      const cshOptStartOfYear = cshOpt;
+      const etfOptStartOfYear = etfOpt;
+      const cshPessStartOfYear = cshPess;
+      const etfPessStartOfYear = etfPess;
       
       for (let month = 0; month < 12; month++) {
         const currentMonthDate = new Date(startDate);
@@ -333,25 +336,14 @@ export default function FIRE() {
         const dateStr = currentMonthDate.toISOString().slice(0, 7);
         const currentYearSim = currentMonthDate.getFullYear();
 
-        // A user is considered "retired" if they reached the target organically OR they hit the forced year.
         const isForcedRetirementActive = forcedRetirementYear != null && currentYearSim >= forcedRetirementYear;
         const isRetiredPreCheck = isForcedRetirementActive || reachedDate !== null;
-        const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
-
-        // Set the baseline on the first month we are abroad
-        if (isAbroadActive && !hasSetAbroadBaseline) {
-          abroadBaselineNW = csh + etf;
-          hasSetAbroadBaseline = true;
-        }
 
         let monthlyContrib = 0;
-
         contributions.forEach(c => {
           const isUntilRetirement = !c.to_date;
           if (dateStr >= c.from_date && (!c.to_date || dateStr <= c.to_date)) {
-            // Stop open-ended contributions if we are retired (either organically or forced)
             if (isUntilRetirement && isRetiredPreCheck) return; 
-
             let amount = c.monthly_amount || 0;
             if (growthEnabled) {
               const fromDate = new Date(c.from_date + '-01');
@@ -362,93 +354,38 @@ export default function FIRE() {
           }
         });
 
-        // Real simulation
+        // Growth
         csh = csh * (1 + mrrCash);
-
-        // Contributions go into ETF bucket.
-        // We first calculate the ETF balance before withdrawals to check if we hit the FIRE target.
         etf = etf * (1 + mrrEtf) + monthlyContrib;
-        const nwBeforeExpenses = csh + etf;
+        
+        cshNoTax = cshNoTax * (1 + mrrCash);
+        etfNoTax = etfNoTax * (1 + mrrEtf) + monthlyContrib;
 
-        // If a forced year is defined, ONLY trigger retirement on that year.
-        // Otherwise, trigger organically based on the target BEFORE expenses are subtracted,
-        // AND ensure the portfolio is actually self-sufficient (net real growth >= expenses).
+        cshOpt = cshOpt * (1 + mrrCash);
+        etfOpt = etfOpt * (1 + mrrEtfOpt) + monthlyContrib;
+
+        cshPess = cshPess * (1 + mrrCash);
+        etfPess = etfPess * (1 + mrrEtfPess) + monthlyContrib;
+
+        const nwBeforeExpenses = csh + etf;
+        const nwBeforeExpensesNoTax = cshNoTax + etfNoTax;
+
         if (forcedRetirementYear != null) {
           if (!reachedDate && currentYearSim >= forcedRetirementYear) {
             reachedDate = currentMonthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
             reachedYears = year + (month + 1) / 12;
           }
         } else {
-          if (!reachedDate && nwBeforeExpenses >= target) {
-            // Check self-sufficiency
-            const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
-            let expectedBox3Tax = 0;
-
-            if (box3Enabled && currentYearSim >= (box3StartYear || 2028) && !isAbroadActive) {
-              if (box3Model === 'bridging') {
-                const effectiveThreshold = box3FiscalPartner ? (box3Threshold || 57000) * 2 : (box3Threshold || 57000);
-                const taxable = Math.max(0, nwBeforeExpenses - effectiveThreshold);
-                let fictitiousReturn = 0;
-                if (taxable > 0) {
-                  const bracket1 = Math.min(taxable, 71650);
-                  const bracket2 = Math.min(Math.max(0, taxable - 71650), 1000000 - 71650);
-                  const bracket3 = Math.max(0, taxable - 1000000);
-                  fictitiousReturn = (bracket1 * 0.0182) + (bracket2 * 0.0437) + (bracket3 * 0.0553);
-                }
-                expectedBox3Tax = fictitiousReturn * (box3TaxRate || 0.36);
-              } else {
-                const totalNominalReturn = (csh * (cashInterestRate || 0)) + (etf * (nominalReturn || 0));
-                const effectiveAllowance = box3FiscalPartner ? (box3ReturnAllowance || 1800) * 2 : (box3ReturnAllowance || 1800);
-                const taxableReturn = Math.max(0, totalNominalReturn - effectiveAllowance);
-                expectedBox3Tax = taxableReturn * (box3TaxRate || 0.36);
-              }
-            }
-            
-            const portfolioRealReturn = (csh * (realCashReturnRate || 0)) + (etf * (realEtfReturnRate || 0));
-            const requiredAnnualGrossExpenses = isAbroadActive ? (annualExpenses || 0) / (1 - moveAbroadTaxRate) : (annualExpenses || 0);
-            
+          // Check for FIRE Reached (Taxed)
+          if (!reachedDate) {
             let isSelfSufficient = false;
-            
+            const isTargetMet = nwBeforeExpenses >= target;
+
             if (deathYear != null) {
-              // Calculate months remaining until the end of the death year
               const monthsToDeath = ((deathYear - currentYearSim) * 12) + (11 - currentMonthDate.getMonth()) + 1;
-              
               if (monthsToDeath <= 0) {
                 isSelfSufficient = true;
               } else {
-                const totalNWInitial = nwBeforeExpenses;
-                const cashWeight = totalNWInitial > 0 ? (csh / totalNWInitial) : 0;
-                const etfWeight = totalNWInitial > 0 ? (etf / totalNWInitial) : 1;
-                const combinedRealReturnRate = (cashWeight * (realCashReturnRate || 0)) + (etfWeight * (realEtfReturnRate || 0));
-                const mrrGross = Math.pow(1 + combinedRealReturnRate, 1/12) - 1;
-
-                // Function to calculate exact Box 3 tax for a given starting net worth
-                const calcBox3 = (startNW: number, yearOfEval: number, isAbr: boolean) => {
-                  let expectedBox3Tax = 0;
-                  if (box3Enabled && yearOfEval >= (box3StartYear || 2028) && !isAbr) {
-                    if (box3Model === 'bridging') {
-                      const effectiveThreshold = box3FiscalPartner ? (box3Threshold || 57000) * 2 : (box3Threshold || 57000);
-                      const taxable = Math.max(0, startNW - effectiveThreshold);
-                      let fictitiousReturn = 0;
-                      if (taxable > 0) {
-                        const bracket1 = Math.min(taxable, 71650);
-                        const bracket2 = Math.min(Math.max(0, taxable - 71650), 1000000 - 71650);
-                        const bracket3 = Math.max(0, taxable - 1000000);
-                        fictitiousReturn = (bracket1 * 0.0182) + (bracket2 * 0.0437) + (bracket3 * 0.0553);
-                      }
-                      expectedBox3Tax = fictitiousReturn * (box3TaxRate || 0.36);
-                    } else {
-                      const weightedNominalReturn = (cashWeight * (cashInterestRate || 0)) + (etfWeight * (nominalReturn || 0));
-                      const totalNominalReturn = (startNW * weightedNominalReturn); 
-                      const effectiveAllowance = box3FiscalPartner ? (box3ReturnAllowance || 1800) * 2 : (box3ReturnAllowance || 1800);
-                      const taxableReturn = Math.max(0, totalNominalReturn - effectiveAllowance);
-                      expectedBox3Tax = taxableReturn * (box3TaxRate || 0.36);
-                    }
-                  }
-                  return expectedBox3Tax;
-                };
-
-                // Work backwards month by month to find required NW
                 let targetPV = 0;
                 const totalYearsToSim = Math.ceil(monthsToDeath / 12);
                 
@@ -458,41 +395,84 @@ export default function FIRE() {
                   const evalRequiredAnnualGrossExpenses = isAbroadThisEvalYear ? (annualExpenses || 0) / (1 - moveAbroadTaxRate) : (annualExpenses || 0);
                   const evalMonthlyExpenses = evalRequiredAnnualGrossExpenses / 12;
 
-                  // Determine how many months to simulate for this specific year (handles partial first/last year)
                   let monthsInThisYear = 12;
-                  if (y === 0) {
-                    // First year: only months from currentMonthDate.getMonth() to 11
-                    monthsInThisYear = 12 - currentMonthDate.getMonth();
-                  }
+                  if (y === 0) monthsInThisYear = 12 - currentMonthDate.getMonth();
 
                   let low = 0;
-                  let high = 200000000; 
+                  let high = 100000000; 
                   let startNW = 0;
 
-                  for (let i = 0; i < 50; i++) { 
+                  for (let i = 0; i < 40; i++) { 
                     let mid = (low + high) / 2;
-                    let port = mid;
+                    // Project cash balance to this year to estimate asset allocation
+                    let pCsh = Math.min(mid, currentCash * Math.pow(1 + (realCashReturnRate || 0), year + (month/12) + y));
+                    let pEtf = Math.max(0, mid - pCsh);
 
                     for (let m = 0; m < monthsInThisYear; m++) {
-                      port = port * (1 + mrrGross) - evalMonthlyExpenses;
+                      pCsh = pCsh * (1 + mrrCash);
+                      pEtf = pEtf * (1 + mrrEtf) - evalMonthlyExpenses;
+                      if (pEtf < 0) { pCsh += pEtf; pEtf = 0; }
                     }
-                    port -= calcBox3(mid, evalYear, isAbroadThisEvalYear);
 
-                    if (port > targetPV) {
-                      high = mid;
-                    } else {
-                      low = mid;
+                    if (box3Enabled && evalYear >= (box3StartYear || 2028) && !isAbroadThisEvalYear) {
+                      let tax = 0;
+                      if (box3Model === 'bridging') {
+                        const taxable = Math.max(0, (pCsh + pEtf) - (box3FiscalPartner ? (box3Threshold || 57000) * 2 : (box3Threshold || 57000)));
+                        let fict = 0;
+                        if (taxable > 0) {
+                          const b1 = Math.min(taxable, 71650);
+                          const b2 = Math.min(Math.max(0, taxable - 71650), 1000000 - 71650);
+                          const b3 = Math.max(0, taxable - 1000000);
+                          fict = (b1 * 0.0182) + (b2 * 0.0437) + (b3 * 0.0553);
+                        }
+                        tax = fict * (box3TaxRate || 0.36);
+                      } else {
+                        const nomRet = (pCsh * (cashInterestRate || 0)) + (pEtf * (nominalReturn || 0));
+                        const allow = box3FiscalPartner ? (box3ReturnAllowance || 1800) * 2 : (box3ReturnAllowance || 1800);
+                        tax = Math.max(0, nomRet - allow) * (box3TaxRate || 0.36);
+                      }
+                      const totalPort = pCsh + pEtf;
+                      if (totalPort > 0) {
+                        const cw = pCsh / totalPort;
+                        pCsh -= tax * cw;
+                        pEtf -= tax * (1 - cw);
+                      }
                     }
+
+                    if (pCsh + pEtf > targetPV) high = mid;
+                    else low = mid;
                     startNW = mid;
                   }
                   targetPV = startNW;
                 }
-
-                isSelfSufficient = totalNWInitial >= targetPV;
+                isSelfSufficient = nwBeforeExpenses >= targetPV;
               }
-            } else {
-              // Perpetual withdrawal logic
-              isSelfSufficient = (portfolioRealReturn - expectedBox3Tax) >= requiredAnnualGrossExpenses;
+            } else if (isTargetMet) {
+              // Perpetual logic
+              const isAbroadNow = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
+              const requiredGross = isAbroadNow ? (annualExpenses || 0) / (1 - moveAbroadTaxRate) : (annualExpenses || 0);
+              let expectedBox3Tax = 0;
+              if (box3Enabled && currentYearSim >= (box3StartYear || 2028) && !isAbroadNow) {
+                if (box3Model === 'bridging') {
+                  const taxable = Math.max(0, nwBeforeExpenses - (box3FiscalPartner ? (box3Threshold || 57000) * 2 : (box3Threshold || 57000)));
+                  let fict = 0;
+                  if (taxable > 0) {
+                    const b1 = Math.min(taxable, 71650);
+                    const b2 = Math.min(Math.max(0, taxable - 71650), 1000000 - 71650);
+                    const b3 = Math.max(0, taxable - 1000000);
+                    fict = (b1 * 0.0182) + (b2 * 0.0437) + (b3 * 0.0553);
+                  }
+                  expectedBox3Tax = fict * (box3TaxRate || 0.36);
+                } else {
+                  const nomRet = (csh * (cashInterestRate || 0)) + (etf * (nominalReturn || 0));
+                  const allow = box3FiscalPartner ? (box3ReturnAllowance || 1800) * 2 : (box3ReturnAllowance || 1800);
+                  expectedBox3Tax = Math.max(0, nomRet - allow) * (box3TaxRate || 0.36);
+                }
+              }
+              const portfolioRealReturn = (csh * (realCashReturnRate || 0)) + (etf * (realEtfReturnRate || 0));
+              // Comparison MUST be annual vs annual OR monthly vs monthly. 
+              // portfolioRealReturn is annual (approx).
+              isSelfSufficient = (portfolioRealReturn - expectedBox3Tax) >= requiredGross;
             }
 
             if (isSelfSufficient) {
@@ -500,82 +480,68 @@ export default function FIRE() {
               reachedYears = year + (month + 1) / 12;
             }
           }
-        }
 
-        // Now that we've checked the target, update 'isRetired' status for this specific month's expense withdrawal.
-        const isRetiredNowPostCheck = (forcedRetirementYear != null && currentYearSim >= forcedRetirementYear) || reachedDate !== null;
-
-        // Subtract expenses if we are retired
-        let monthlyExpenses = 0;
-        if (isRetiredNowPostCheck) {
-          const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
-          if (isAbroadActive) {
-            monthlyExpenses = (annualExpenses / 12) / (1 - moveAbroadTaxRate);
-          } else {
-            monthlyExpenses = (annualExpenses / 12);
+          // Check for FIRE Reached (No Tax) - simplified check for the drag indicator
+          if (!noTaxReachedYears) {
+             if (deathYear != null) {
+                // For death year, we just use the target heuristic for the 'no tax' line
+                if (nwBeforeExpensesNoTax >= target) noTaxReachedYears = year + (month + 1) / 12;
+             } else {
+                const portfolioRealReturnNoTax = (cshNoTax * (realCashReturnRate || 0)) + (etfNoTax * (realEtfReturnRate || 0));
+                if (portfolioRealReturnNoTax >= annualExpenses) noTaxReachedYears = year + (month + 1) / 12;
+             }
           }
+        }
+
+        const isRetiredNow = (forcedRetirementYear != null && currentYearSim >= forcedRetirementYear) || reachedDate !== null;
+        if (isRetiredNow) {
+          const isAbroadActive = moveAbroadEnabled && currentYearSim >= moveAbroadYear;
+          const monthlyExpenses = isAbroadActive ? (annualExpenses / 12) / (1 - moveAbroadTaxRate) : (annualExpenses / 12);
           etf -= monthlyExpenses;
+          etfOpt -= monthlyExpenses;
+          etfPess -= monthlyExpenses;
+          etfNoTax -= (annualExpenses / 12);
         }
 
-        etfOpt = etfOpt * (1 + mrrEtfOpt) + (isRetiredNowPostCheck ? 0 : monthlyContrib) - monthlyExpenses;
-        etfPess = etfPess * (1 + mrrEtfPess) + (isRetiredNowPostCheck ? 0 : monthlyContrib) - monthlyExpenses;
-
-        // Clamp to zero
-        if (etf < 0) {
-          csh += etf; // drain cash if etf is empty
-          etf = 0;
-        }
-        if (csh < 0) csh = 0; // if both empty, clamp to 0
-
-        etfOpt = Math.max(0, etfOpt);
-        etfPess = Math.max(0, etfPess);
+        // Clamping & Draining
+        if (etf < 0) { csh += etf; etf = 0; } if (csh < 0) csh = 0;
+        if (etfOpt < 0) { cshOpt += etfOpt; etfOpt = 0; } if (cshOpt < 0) cshOpt = 0;
+        if (etfPess < 0) { cshPess += etfPess; etfPess = 0; } if (cshPess < 0) cshPess = 0;
+        if (etfNoTax < 0) { cshNoTax += etfNoTax; etfNoTax = 0; } if (cshNoTax < 0) cshNoTax = 0;
 
         annualContribution += monthlyContrib;
       }
-      // Box 3 tax deduction at year-end
-      let box3TaxThisYear = 0;
-      const finalMonthOfYear = new Date(startDate);
-      finalMonthOfYear.setMonth(startDate.getMonth() + (year * 12) + 11);
-      const currentYearSimEnd = finalMonthOfYear.getFullYear();
 
-      const isAbroadActiveThisYear = moveAbroadEnabled && currentYearSimEnd >= moveAbroadYear;
-      if (box3Enabled && currentYearSimEnd >= (box3StartYear || 2028) && !isAbroadActiveThisYear) {
+      // Year-end Box 3
+      let box3TaxThisYear = 0;
+      const currentYearSimEnd = startDate.getFullYear() + year;
+      const isAbroadEnd = moveAbroadEnabled && currentYearSimEnd >= moveAbroadYear;
+      
+      if (box3Enabled && currentYearSimEnd >= (box3StartYear || 2028) && !isAbroadEnd) {
         if (box3Model === 'bridging') {
-          const nwBeforeTax = csh + etf;
-          const effectiveThreshold = box3FiscalPartner ? (box3Threshold || 57000) * 2 : (box3Threshold || 57000);
-          const taxable = Math.max(0, nwBeforeTax - effectiveThreshold);
-          let fictitiousReturn = 0;
+          const taxable = Math.max(0, (csh + etf) - (box3FiscalPartner ? (box3Threshold || 57000) * 2 : (box3Threshold || 57000)));
+          let fict = 0;
           if (taxable > 0) {
-            const bracket1 = Math.min(taxable, 71650);
-            const bracket2 = Math.min(Math.max(0, taxable - 71650), 1000000 - 71650);
-            const bracket3 = Math.max(0, taxable - 1000000);
-            fictitiousReturn = (bracket1 * 0.0182) + (bracket2 * 0.0437) + (bracket3 * 0.0553);
+            const b1 = Math.min(taxable, 71650);
+            const b2 = Math.min(Math.max(0, taxable - 71650), 1000000 - 71650);
+            const b3 = Math.max(0, taxable - 1000000);
+            fict = (b1 * 0.0182) + (b2 * 0.0437) + (b3 * 0.0553);
           }
-          box3TaxThisYear = fictitiousReturn * (box3TaxRate || 0.36);
+          box3TaxThisYear = fict * (box3TaxRate || 0.36);
         } else {
-          // New model: tax on actual nominal returns
-          const totalNominalReturn = (cshStartOfYear * (cashInterestRate || 0)) + (etfStartOfYear * (nominalReturn || 0));
-          const effectiveAllowance = box3FiscalPartner ? (box3ReturnAllowance || 1800) * 2 : (box3ReturnAllowance || 1800);
-          const taxableReturn = Math.max(0, totalNominalReturn - effectiveAllowance);
-          box3TaxThisYear = taxableReturn * (box3TaxRate || 0.36);
+          const nomRet = (cshStartOfYear * (cashInterestRate || 0)) + (etfStartOfYear * (nominalReturn || 0));
+          const allow = box3FiscalPartner ? (box3ReturnAllowance || 1800) * 2 : (box3ReturnAllowance || 1800);
+          box3TaxThisYear = Math.max(0, nomRet - allow) * (box3TaxRate || 0.36);
         }
         
-        // Deduction - proportionally from cash and etf
         const totalNW = csh + etf;
         if (totalNW > 0) {
-          const cashWeight = csh / totalNW;
-          const etfWeight = etf / totalNW;
-          csh -= box3TaxThisYear * cashWeight;
-          etf -= box3TaxThisYear * etfWeight;
-          etfOpt -= box3TaxThisYear * etfWeight;
-          etfPess -= box3TaxThisYear * etfWeight;
+          const cw = csh / totalNW; const ew = etf / totalNW;
+          csh -= box3TaxThisYear * cw; etf -= box3TaxThisYear * ew;
+          cshOpt -= box3TaxThisYear * cw; etfOpt -= box3TaxThisYear * ew;
+          cshPess -= box3TaxThisYear * cw; etfPess -= box3TaxThisYear * ew;
         }
-        
-        if (csh < 0) csh = 0;
-        if (etf < 0) etf = 0;
-        if (etfOpt < 0) etfOpt = 0;
-        if (etfPess < 0) etfPess = 0;
-
+        if (csh < 0) csh = 0; if (etf < 0) etf = 0;
         totalBox3Paid += box3TaxThisYear;
       }
 
@@ -585,15 +551,14 @@ export default function FIRE() {
         year,
         date: currentYearSimEnd.toString(),
         netWorth: csh + etf,
-        netWorthOptimistic: csh + etfOpt,
-        netWorthPessimistic: csh + etfPess,
-        netWorthNoTax: nwNoTax,
+        netWorthOptimistic: cshOpt + etfOpt,
+        netWorthPessimistic: cshPess + etfPess,
+        netWorthNoTax: cshNoTax + etfNoTax,
         annualContribution,
         cumulativeContributions: totalContributions,
         box3TaxThisYear,
         cumulativeBox3Tax: totalBox3Paid
       });
-
       if (year === 60) break;
     }
 
@@ -618,6 +583,11 @@ export default function FIRE() {
   const fatResult = useMemo(() => runSimulation(effectiveMultiplier * 1.5), [runSimulation, effectiveMultiplier]);
 
   const progressPercent = fireTarget > 0 ? Math.min(100, (currentNetWorth / fireTarget) * 100) : 0;
+
+  const yDomainMax = useMemo(() => {
+    const maxNW = Math.max(...baseResult.data.map(d => d.netWorthNoTax), ...baseResult.data.map(d => d.netWorth));
+    return Math.max(maxNW, fireTarget) * 1.1;
+  }, [baseResult.data, fireTarget]);
 
   // Validation: Overlapping periods
   const hasOverlap = useMemo(() => {
@@ -1223,6 +1193,7 @@ export default function FIRE() {
                     interval={5}
                   />
                   <YAxis 
+                    domain={[0, yDomainMax]}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 10, fill: '#94A3B8' }}
