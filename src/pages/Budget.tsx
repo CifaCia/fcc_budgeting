@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency } from '@/lib/currency';
@@ -6,14 +6,29 @@ import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { 
   Plus, Trash2, TrendingUp,
-  Check, X, ChevronLeft, ChevronRight, PieChart,
-  Target, Info, ArrowUpRight, ArrowDownRight
+  Check, X, ChevronLeft, ChevronRight, PieChart as PieChartIcon,
+  Target, Info, ArrowUpRight, ArrowDownRight, LayoutDashboard
 } from 'lucide-react';
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer
+} from 'recharts';
 import { cn } from '@/lib/utils';
+
+const CATEGORY_COLORS = [
+  '#00E5C3', // Electric Teal
+  '#3B82F6', // Blue
+  '#6366F1', // Indigo
+  '#F59E0B', // Amber
+  '#EC4899', // Pink
+  '#8B5CF6', // Violet
+  '#10B981', // Emerald
+  '#F43F5E', // Rose
+];
 
 interface BudgetItem {
   id: string;
   category: string;
+  label: string | null;
   expected_monthly: number;
   is_fixed: boolean;
 }
@@ -22,14 +37,30 @@ export default function Budget() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
-  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('monthly_income');
+      return cached ? parseFloat(cached) : 0;
+    }
+    return 0;
+  });
+  const [incomeInput, setIncomeInput] = useState(monthlyIncome.toString());
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [actualSpend, setActualSpend] = useState<Record<string, number>>({});
   
   // Inline Add State
-  const [newItem, setNewItem] = useState({ category: '', amount: '', isFixed: false });
+  const [newItem, setNewItem] = useState({ category: '', label: '', amount: '', isFixed: true });
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<BudgetItem | null>(null);
+
+  const availableCategories = useMemo(() => {
+    const fromBudget = budgetItems.map(i => i.category);
+    const fromTransactions = Object.keys(actualSpend);
+    return Array.from(new Set([...fromBudget, ...fromTransactions])).sort();
+  }, [budgetItems, actualSpend]);
 
   const fetchData = async () => {
     if (!user) return;
@@ -47,7 +78,13 @@ export default function Budget() {
       .select('monthly_income')
       .eq('user_id', user.id)
       .maybeSingle();
-    setMonthlyIncome(Number(settingsData?.monthly_income) || 0);
+    
+    if (settingsData?.monthly_income !== undefined) {
+      const income = Number(settingsData.monthly_income);
+      setMonthlyIncome(income);
+      setIncomeInput(income.toString());
+      localStorage.setItem('monthly_income', income.toString());
+    }
 
     const startOfMonth = `${selectedMonth}-01`;
     const lastDay = new Date(new Date(startOfMonth).getFullYear(), new Date(startOfMonth).getMonth() + 1, 0).getDate();
@@ -76,17 +113,22 @@ export default function Budget() {
   }, [user, selectedMonth]);
 
   const handleAddRow = async () => {
-    if (!newItem.category || !newItem.amount) return;
+    const category = isAddingNewCategory ? newCategoryName : newItem.category;
+    if (!category || !newItem.amount) return;
+
     const { data, error } = await supabase.from('budget_items').insert({
       user_id: user?.id,
-      category: newItem.category,
+      category,
+      label: newItem.label,
       expected_monthly: parseFloat(newItem.amount),
       is_fixed: newItem.isFixed
     }).select().single();
 
     if (!error && data) {
       setBudgetItems([...budgetItems, data]);
-      setNewItem({ category: '', amount: '', isFixed: false });
+      setNewItem({ category: '', label: '', amount: '', isFixed: true });
+      setIsAddingNewCategory(false);
+      setNewCategoryName('');
     }
   };
 
@@ -95,10 +137,23 @@ export default function Budget() {
     if (!error) setBudgetItems(budgetItems.filter(item => item.id !== id));
   };
 
-  const handleUpdateIncome = async (val: string) => {
-    const amount = parseFloat(val) || 0;
-    setMonthlyIncome(amount);
-    await supabase.from('user_settings').upsert({ user_id: user?.id, monthly_income: amount }, { onConflict: 'user_id' });
+  // Debounced Income Update
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const amount = parseFloat(incomeInput) || 0;
+      if (amount !== monthlyIncome) {
+        setMonthlyIncome(amount);
+        localStorage.setItem('monthly_income', amount.toString());
+        if (user) {
+          await supabase.from('user_settings').upsert({ user_id: user.id, monthly_income: amount }, { onConflict: 'user_id' });
+        }
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [incomeInput, user]);
+
+  const handleUpdateIncomeInput = (val: string) => {
+    setIncomeInput(val);
   };
 
   const startEdit = (item: BudgetItem) => {
@@ -110,6 +165,7 @@ export default function Budget() {
     if (!editValue) return;
     const { error } = await supabase.from('budget_items').update({
       category: editValue.category,
+      label: editValue.label,
       expected_monthly: editValue.expected_monthly,
       is_fixed: editValue.is_fixed
     }).eq('id', editValue.id);
@@ -133,6 +189,16 @@ export default function Budget() {
     date.setMonth(date.getMonth() + dir);
     setSelectedMonth(date.toISOString().slice(0, 7));
   };
+
+  const categoryData = useMemo(() => {
+    const totals: Record<string, number> = {};
+    budgetItems.forEach(item => {
+      totals[item.category] = (totals[item.category] || 0) + item.expected_monthly;
+    });
+    return Object.entries(totals)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [budgetItems]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -162,7 +228,7 @@ export default function Budget() {
       </header>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -175,8 +241,8 @@ export default function Budget() {
             <span className="text-2xl font-mono font-bold text-accent">€</span>
             <input 
               type="number"
-              value={monthlyIncome}
-              onChange={(e) => handleUpdateIncome(e.target.value)}
+              value={incomeInput}
+              onChange={(e) => handleUpdateIncomeInput(e.target.value)}
               className="text-4xl font-mono font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-foreground"
             />
           </div>
@@ -201,10 +267,10 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-200 shadow-2xl">
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-200">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <PieChart size={14} className="text-amber-500" />
+              <PieChartIcon size={14} className="text-amber-500" />
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Actual Savings</span>
             </div>
             <Tooltip content="Income minus actual tracked spending for the selected month." />
@@ -219,6 +285,58 @@ export default function Budget() {
             )}>
               {actualSavingRate.toFixed(1)}% REALIZED
             </span>
+          </div>
+        </div>
+
+        <div className="bg-card p-4 rounded-2xl border-t border-white/5 animate-slide-up delay-300 flex items-center gap-4">
+          <div className="w-24 h-24 shrink-0">
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={25}
+                    outerRadius={35}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {categoryData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} stroke="none" />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center rounded-full border-2 border-dashed border-white/5 bg-white/[0.02]">
+                <PieChartIcon size={16} className="text-muted-foreground/20" />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col justify-center min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <LayoutDashboard size={12} className="text-accent" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Allocation</span>
+            </div>
+            <div className="space-y-1">
+              {categoryData.length > 0 ? (
+                categoryData.slice(0, 3).map((cat, i) => (
+                  <div key={cat.name} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
+                      <span className="text-[10px] font-mono text-muted-foreground truncate">{cat.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold whitespace-nowrap">{totalBudgeted > 0 ? Math.round((cat.value / totalBudgeted) * 100) : 0}%</span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-[9px] font-mono text-muted-foreground/40 italic uppercase tracking-tighter">No data</span>
+              )}
+              {categoryData.length > 3 && (
+                <span className="text-[9px] font-mono text-muted-foreground/50 italic">+{categoryData.length - 3} more</span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -239,7 +357,7 @@ export default function Budget() {
             <table className="w-full">
               <thead className="bg-white/[0.02]">
                 <tr>
-                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Category / Name</th>
                   <th className="px-6 py-4 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Plan</th>
                   <th className="px-6 py-4 text-center text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Type</th>
                   <th className="px-6 py-4 text-right"></th>
@@ -250,7 +368,10 @@ export default function Budget() {
                   <tr key={item.id} className="hover:bg-white/[0.01] transition-colors group animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
                     {editingId === item.id ? (
                       <>
-                        <td className="px-6 py-4"><input className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} /></td>
+                        <td className="px-6 py-4 space-y-2">
+                          <input className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" placeholder="Category" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" placeholder="Name/Label" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} />
+                        </td>
                         <td className="px-6 py-4"><input type="number" className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent font-mono" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} /></td>
                         <td className="px-6 py-4 text-center"><input type="checkbox" checked={editValue?.is_fixed} onChange={e => setEditValue(v => v ? {...v, is_fixed: e.target.checked} : null)} className="accent-accent" /></td>
                         <td className="px-6 py-4 text-right">
@@ -262,7 +383,12 @@ export default function Budget() {
                       </>
                     ) : (
                       <>
-                        <td className="px-6 py-5 text-sm font-bold cursor-pointer" onClick={() => startEdit(item)}>{item.category}</td>
+                        <td className="px-6 py-5 cursor-pointer" onClick={() => startEdit(item)}>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{item.category}</span>
+                            <span className="text-sm font-bold text-foreground">{item.label || '—'}</span>
+                          </div>
+                        </td>
                         <td className="px-6 py-5 text-sm font-mono font-bold text-muted-foreground cursor-pointer" onClick={() => startEdit(item)}>{formatCurrency(item.expected_monthly)}</td>
                         <td className="px-6 py-5 text-center">
                           <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border", item.is_fixed ? "bg-white/10 text-foreground border-white/20" : "bg-accent/10 text-accent border-accent/20")}>
@@ -278,7 +404,44 @@ export default function Budget() {
                 ))}
                 {/* Add Inline */}
                 <tr className="bg-white/[0.02]">
-                  <td className="px-6 py-4"><input placeholder="Add Category..." className="w-full bg-transparent border-none p-0 text-xs placeholder:text-muted-foreground/30 focus:ring-0" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} /></td>
+                  <td className="px-6 py-4 space-y-2">
+                    {isAddingNewCategory ? (
+                      <div className="flex gap-2">
+                        <input 
+                          placeholder="New Category Name..." 
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent" 
+                          value={newCategoryName} 
+                          onChange={e => setNewCategoryName(e.target.value)} 
+                          autoFocus
+                        />
+                        <button onClick={() => setIsAddingNewCategory(false)} className="text-destructive"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <select 
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-foreground focus:ring-accent"
+                        value={newItem.category}
+                        onChange={e => {
+                          if (e.target.value === 'ADD_NEW') {
+                            setIsAddingNewCategory(true);
+                          } else {
+                            setNewItem({...newItem, category: e.target.value});
+                          }
+                        }}
+                      >
+                        <option value="">Select Category...</option>
+                        {availableCategories.map(cat => (
+                          <option key={cat} value={cat} className="bg-[#0A0A0A]">{cat}</option>
+                        ))}
+                        <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ Add New Category...</option>
+                      </select>
+                    )}
+                    <input 
+                      placeholder="Entry Name (e.g. Rent, Netflix)..." 
+                      className="w-full bg-transparent border-none p-0 text-xs placeholder:text-muted-foreground/30 focus:ring-0" 
+                      value={newItem.label} 
+                      onChange={e => setNewItem({...newItem, label: e.target.value})} 
+                    />
+                  </td>
                   <td className="px-6 py-4"><input type="number" placeholder="0.00" className="w-full bg-transparent border-none p-0 text-xs font-mono placeholder:text-muted-foreground/30 focus:ring-0" value={newItem.amount} onChange={e => setNewItem({...newItem, amount: e.target.value})} /></td>
                   <td className="px-6 py-4 text-center"><input type="checkbox" checked={newItem.isFixed} onChange={e => setNewItem({...newItem, isFixed: e.target.checked})} className="accent-accent" /></td>
                   <td className="px-6 py-4 text-right">
