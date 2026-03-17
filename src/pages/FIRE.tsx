@@ -5,13 +5,13 @@ import { formatCurrency, convertToEUR } from '@/lib/currency';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { 
   TrendingUp, Target, Calendar, 
-  Plus, Trash2, Info, AlertTriangle,
+  Trash2,
   Landmark, PieChart as PieChartIcon, 
-  ArrowUpRight, Minus, ChevronDown, ChevronUp, Save
+  Plus
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, ReferenceLine, ReferenceArea
+  ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
@@ -87,11 +87,8 @@ export default function FIRE() {
   const [box3DividendYield, setBox3DividendYield] = useState(0.07);
   const [box3TaxRate, setBox3TaxRate] = useState(0.36);
 
-  const [showYearlyData, setShowYearlyData] = useState(false);
-
   // Persistence State
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Sync Box 3 yield with nominal return
   useEffect(() => {
@@ -195,8 +192,7 @@ export default function FIRE() {
     if (loading || !user) return;
     const timer = setTimeout(async () => {
       setSaving(true);
-      setSaveError(null);
-      const { error } = await supabase.from('user_settings').upsert({
+      await supabase.from('user_settings').upsert({
         user_id: user.id,
         fire_cash_balance: cashBalanceOverride,
         fire_etf_balance: etfBalanceOverride,
@@ -224,7 +220,6 @@ export default function FIRE() {
         fire_box3_dividend_yield: box3DividendYield ?? 0.015,
         fire_box3_tax_rate: box3TaxRate ?? 0.36
       }, { onConflict: 'user_id' });
-      if (error) setSaveError(error.message);
       setSaving(false);
     }, 500);
     return () => clearTimeout(timer);
@@ -314,6 +309,7 @@ export default function FIRE() {
         cshPess = cshPess * (1 + mrrCash); etfPess = etfPess * (1 + mrrEtfPess) + monthlyContrib;
 
         if (!reachedDate) {
+          const nwBeforeExpensesNoTax = cshNoTax + etfNoTax;
           if (nwBeforeExpensesNoTax >= target && !noTaxReachedYears) noTaxReachedYears = year + (month + 1) / 12;
           if ((csh + etf) >= target) {
             reachedDate = currentMonthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -375,7 +371,6 @@ export default function FIRE() {
   const leanResult = useMemo(() => runSimulation(effectiveMultiplier * 0.7), [runSimulation, effectiveMultiplier]);
   const fatResult = useMemo(() => runSimulation(effectiveMultiplier * 1.5), [runSimulation, effectiveMultiplier]);
   const progressPercent = fireTarget > 0 ? Math.min(100, (currentNetWorth / fireTarget) * 100) : 0;
-  const yDomainMax = useMemo(() => Math.max(...baseResult.data.map(d => d.netWorthNoTax), fireTarget) * 1.15, [baseResult.data, fireTarget]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -469,7 +464,7 @@ export default function FIRE() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <tbody className="divide-y divide-white/5">
-                  {contributions.map((c, i) => (
+                  {contributions.map((c) => (
                     <tr key={c.id} className="group hover:bg-white/[0.02] transition-colors">
                       <td className="p-6">
                         <div className="flex flex-col gap-1">

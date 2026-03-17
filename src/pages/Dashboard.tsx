@@ -7,10 +7,10 @@ import ManualTradeRepublic from '@/components/dashboard/ManualTradeRepublic';
 import ManualABNAMRO from '@/components/dashboard/ManualABNAMRO';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip,
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { TrendingUp, TrendingDown, Plus, Edit2, Check, X, Clock, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
+import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Transaction {
@@ -67,8 +67,6 @@ export default function Dashboard() {
   const [lastUpload, setLastUpload] = useState<LastUpload | null>(null);
   const [property, setProperty] = useState<PropertyData | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
 
   const fetchData = async () => {
     if (!user) return;
@@ -134,13 +132,13 @@ export default function Dashboard() {
     const propEquity = currentProp ? currentProp.value * currentProp.ownership * currentProp.debtFree : 0;
     
     if (!hasTodaySnapshot && (liquid > 0 || propEquity > 0)) {
-      await createSnapshot(trans, todayStr, settings, liquid, propEquity);
+      await createSnapshot(trans, todayStr, liquid, propEquity);
     }
 
     setLoading(false);
   };
 
-  const createSnapshot = async (trans: Transaction[], date: string, settings: any, liquid: number, propEquity: number) => {
+  const createSnapshot = async (trans: Transaction[], date: string, liquid: number, propEquity: number) => {
     const breakdown: Record<string, number> = { cash: 0, stock: 0, etf: 0, property: 0, other: 0 };
     trans.forEach(t => {
       const amountEUR = convertToEUR(t.amount, t.currency);
@@ -185,14 +183,6 @@ export default function Dashboard() {
   const lastMonthSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : (snapshots[0] || null);
   const delta = lastMonthSnapshot ? totalNetWorth - lastMonthSnapshot.net_worth : 0;
   const deltaPercent = lastMonthSnapshot && lastMonthSnapshot.net_worth > 0 ? (delta / lastMonthSnapshot.net_worth) * 100 : 0;
-
-  const handleEditCategory = async (id: string) => {
-    const { error } = await supabase.from('transactions').update({ category: editValue }).eq('id', id);
-    if (!error) {
-      setTransactions(prev => prev.map(t => t.id === id ? { ...t, category: editValue } : t));
-      setEditingCategoryId(null);
-    }
-  };
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">

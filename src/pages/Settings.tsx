@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { AlertTriangle, Home, Percent, Euro, Save, Tag, Plus, Trash2, Mail, Calendar, Bell, Send, ArrowRightLeft, ShieldAlert } from 'lucide-react';
+import { Home, Save, Tag, Trash2, Bell, ArrowRightLeft, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CSVSource } from '@/lib/csvParsers';
 
 export default function Settings() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [sourceToWipe, setSourceToWipe] = useState<CSVSource | 'all'>('all');
@@ -79,15 +78,12 @@ export default function Settings() {
 
   const updatePropertyValue = async () => {
     if (!user) return;
-    setLoading(true);
     const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, property_value: propertySettings.value }, { onConflict: 'user_id' });
     if (!error) setMessage({ type: 'success', text: 'Property value updated.' });
-    setLoading(false);
   };
 
   const updatePropertyEquity = async () => {
     if (!user) return;
-    setLoading(true);
     const { error } = await supabase.from('user_settings').upsert({
       user_id: user.id,
       property_ownership_pct: propertySettings.ownership / 100,
@@ -95,12 +91,10 @@ export default function Settings() {
       property_last_auto_update: new Date().toISOString().split('T')[0]
     }, { onConflict: 'user_id' });
     if (!error) setMessage({ type: 'success', text: 'Equity updated.' });
-    setLoading(false);
   };
 
   const updateReminderSettings = async () => {
     if (!user) return;
-    setLoading(true);
     const { error } = await supabase.from('user_settings').upsert({
       user_id: user.id,
       reminder_email: reminderSettings.email,
@@ -108,18 +102,15 @@ export default function Settings() {
       reminders_enabled: reminderSettings.enabled,
     }, { onConflict: 'user_id' });
     if (!error) setMessage({ type: 'success', text: 'Reminder settings updated.' });
-    setLoading(false);
   };
 
   const wipeData = async () => {
     if (!user) return;
-    setLoading(true);
     let query = supabase.from('transactions').delete().eq('user_id', user.id);
     if (sourceToWipe !== 'all') query = query.eq('source', sourceToWipe);
     const { error } = await query;
     if (!error && sourceToWipe === 'all') await supabase.from('snapshots').delete().eq('user_id', user.id);
     setConfirmWipe(false);
-    setLoading(false);
   };
 
   return (

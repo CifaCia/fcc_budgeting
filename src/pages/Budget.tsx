@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency } from '@/lib/currency';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { 
-  Plus, Trash2, Save, TrendingUp, Wallet, ArrowRightLeft, 
-  Check, X, AlertCircle, ChevronLeft, ChevronRight, PieChart,
+  Plus, Trash2, TrendingUp,
+  Check, X, ChevronLeft, ChevronRight, PieChart,
   Target, Info, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
