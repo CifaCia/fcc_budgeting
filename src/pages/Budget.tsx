@@ -115,9 +115,22 @@ export default function Budget() {
   }, [user, selectedMonth]);
 
   const handleAddRow = async () => {
-    if (!user) return;
+    if (!user) {
+      console.error("No user found");
+      return;
+    }
+    
     const category = isAddingNewCategory ? newCategoryName : newItem.category;
-    if (!category || !newItem.amount) return;
+    console.log("Attempting to add entry:", { category, label: newItem.label, amount: newItem.amount });
+
+    if (!category) {
+      alert("Please select or enter a category");
+      return;
+    }
+    if (!newItem.amount || parseFloat(newItem.amount) <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
 
     const { data, error } = await supabase.from('budget_items').insert({
       user_id: user.id,
@@ -127,7 +140,14 @@ export default function Budget() {
       is_fixed: newItem.isFixed
     }).select().single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("Supabase error:", error);
+      alert(`Error saving entry: ${error.message}`);
+      return;
+    }
+
+    if (data) {
+      console.log("Entry added successfully:", data);
       setBudgetItems([...budgetItems, data]);
       setNewItem({ category: '', label: '', amount: '', isFixed: true });
       setIsAddingNewCategory(false);
