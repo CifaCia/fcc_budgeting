@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency, convertToEUR } from '@/lib/currency';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { 
   TrendingUp, Target, Calendar, 
   Trash2,
@@ -10,7 +11,7 @@ import {
   Plus, Plane, Skull, ArrowUpRight
 } from 'lucide-react';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
   ResponsiveContainer, ReferenceLine, ReferenceArea
 } from 'recharts';
 import { cn } from '@/lib/utils';
@@ -418,15 +419,18 @@ export default function FIRE() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'FIRE Target', value: fireTarget, icon: Target, color: 'text-accent', sub: `${effectiveMultiplier.toFixed(0)}x annual spend` },
-          { label: 'Projected Date', value: baseResult.date || '60y+', icon: Calendar, color: 'text-blue-400', sub: baseResult.reached ? `${baseResult.years?.toFixed(1)} years to go` : 'Target not met' },
-          { label: 'Progress', value: `${progressPercent.toFixed(1)}%`, icon: PieChartIcon, color: 'text-amber-500', sub: formatCurrency(currentNetWorth) },
-          { label: 'Lifetime Tax', value: baseResult.totalBox3Paid, icon: Landmark, color: 'text-destructive', sub: 'Estimated Box 3 drag' },
+          { label: 'FIRE Target', value: fireTarget, icon: Target, color: 'text-accent', sub: `${effectiveMultiplier.toFixed(0)}x annual spend`, tip: "Total capital needed to sustain your lifestyle indefinitely." },
+          { label: 'Projected Date', value: baseResult.date || '60y+', icon: Calendar, color: 'text-blue-400', sub: baseResult.reached ? `${baseResult.years?.toFixed(1)} years to go` : 'Target not met', tip: "Estimated date you reach your financial independence target." },
+          { label: 'Progress', value: `${progressPercent.toFixed(1)}%`, icon: PieChartIcon, color: 'text-amber-500', sub: formatCurrency(currentNetWorth), tip: "Your current net worth as a percentage of your FIRE target." },
+          { label: 'Lifetime Tax', value: baseResult.totalBox3Paid, icon: Landmark, color: 'text-destructive', sub: 'Estimated Box 3 drag', tip: "Total Dutch wealth tax paid over the simulation period." },
         ].map((card, i) => (
           <div key={i} className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-            <div className="flex items-center gap-2 mb-4">
-              <card.icon size={14} className={card.color} />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{card.label}</span>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <card.icon size={14} className={card.color} />
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{card.label}</span>
+              </div>
+              <Tooltip content={card.tip} />
             </div>
             <div className="text-2xl font-mono font-bold">
               {typeof card.value === 'number' ? <AnimatedNumber value={card.value} formatter={formatCurrency} /> : card.value}
@@ -441,7 +445,10 @@ export default function FIRE() {
         <div className="lg:col-span-2 space-y-8">
           <section className="bg-card p-6 rounded-2xl border-t border-white/5 relative overflow-hidden">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Capital Projection</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Capital Projection</h3>
+                <Tooltip content="Future wealth projection including market growth, taxes, and contributions." />
+              </div>
               {growthEnabled && (
                 <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-1 rounded border border-accent/20 flex items-center">
                   <ArrowUpRight size={12} className="mr-1" /> Contributions +{(growthRate*100).toFixed(1)}%/yr
@@ -464,7 +471,7 @@ export default function FIRE() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
                   <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#555', fontFamily: 'DM Mono' }} interval={Math.floor(baseResult.data.length / 6)} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#555', fontFamily: 'DM Mono' }} tickFormatter={(v) => v >= 1000000 ? `€${(v/1000000).toFixed(1)}M` : `€${(v/1000).toFixed(0)}k`} />
-                  <Tooltip 
+                  <RechartsTooltip 
                     trigger="click"
                     contentStyle={{ backgroundColor: '#0A0A0A', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Mono' }}
                     itemStyle={{ fontSize: '12px' }}
@@ -517,7 +524,10 @@ export default function FIRE() {
           {/* Schedule */}
           <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Contribution Periods</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Contribution Periods</h3>
+                <Tooltip content="Define different phases of your life where you contribute varying amounts to your portfolio." />
+              </div>
               <button onClick={addPeriod} className="text-xs font-mono text-accent bg-accent/10 px-3 py-1.5 rounded-full hover:bg-accent/20 transition-colors flex items-center gap-2">
                 <Plus size={14} /> Add Phase
               </button>
@@ -587,12 +597,15 @@ export default function FIRE() {
           {/* Sensitivity Variants */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { label: 'Lean FIRE', res: leanResult, sub: '70% budget', color: 'text-accent/60' },
-              { label: 'Regular', res: baseResult, sub: '100% budget', color: 'text-accent' },
-              { label: 'Fat FIRE', res: fatResult, sub: '150% budget', color: 'text-amber-500' },
+              { label: 'Lean FIRE', res: leanResult, sub: '70% budget', color: 'text-accent/60', tip: "Minimalistic FIRE scenario with reduced expenses." },
+              { label: 'Regular', res: baseResult, sub: '100% budget', color: 'text-accent', tip: "Standard FIRE scenario matching your current budget." },
+              { label: 'Fat FIRE', res: fatResult, sub: '150% budget', color: 'text-amber-500', tip: "Luxury FIRE scenario with increased lifestyle budget." },
             ].map((v, i) => (
               <div key={i} className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-                <h3 className={cn("text-[10px] font-mono uppercase tracking-widest mb-4", v.color)}>{v.label}</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={cn("text-[10px] font-mono uppercase tracking-widest", v.color)}>{v.label}</h3>
+                  <Tooltip content={v.tip} />
+                </div>
                 <div className="text-xl font-mono font-bold">{formatCurrency(v.res.target)}</div>
                 <p className="text-[10px] text-muted-foreground mt-1 mb-4 uppercase">{v.sub}</p>
                 <div className="pt-4 border-t border-white/5 flex justify-between items-end">
@@ -613,7 +626,10 @@ export default function FIRE() {
               {/* Core Inputs */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Target Mode</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Target Mode</label>
+                    <Tooltip content="Choose between a fixed spending multiplier (e.g., 25x) or a safe withdrawal percentage (e.g., 4%)." />
+                  </div>
                   <select 
                     value={fireMode}
                     onChange={(e) => setFireMode(e.target.value as any)}
@@ -625,7 +641,10 @@ export default function FIRE() {
                 </div>
                 {fireMode === 'multiplier' ? (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Multiplier</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Multiplier</label>
+                      <Tooltip content="The amount of years of expenses you need to have saved (25x is common for 4% rule)." />
+                    </div>
                     <input 
                       type="number"
                       value={multiplier}
@@ -635,7 +654,10 @@ export default function FIRE() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">SWR %</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">SWR %</label>
+                      <Tooltip content="Safe Withdrawal Rate: the percentage of your portfolio you withdraw each year." />
+                    </div>
                     <input 
                       type="number"
                       step="0.1"
@@ -649,7 +671,10 @@ export default function FIRE() {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Monthly Expenses</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Monthly Expenses</label>
+                    <Tooltip content="Your expected monthly budget during retirement." />
+                  </div>
                   <span className="text-sm font-mono font-bold">{formatCurrency(annualExpenses / 12)}</span>
                 </div>
                 <input 
@@ -662,7 +687,10 @@ export default function FIRE() {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Market Return (%)</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Market Return (%)</label>
+                    <Tooltip content="Expected annual growth of your investment portfolio (Stocks/ETFs)." />
+                  </div>
                   <span className="text-sm font-mono font-bold text-accent">{(nominalReturn * 100).toFixed(1)}%</span>
                 </div>
                 <input 
@@ -675,7 +703,10 @@ export default function FIRE() {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Inflation (%)</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Inflation (%)</label>
+                    <Tooltip content="The rate at which the general level of prices for goods and services is rising." />
+                  </div>
                   <span className="text-sm font-mono font-bold">{(inflationRate * 100).toFixed(1)}%</span>
                 </div>
                 <input 
@@ -694,6 +725,7 @@ export default function FIRE() {
                     <div className="flex items-center gap-2">
                       <Skull size={12} className="text-destructive/60" />
                       <label className="text-[10px] font-mono text-muted-foreground uppercase">Death Year</label>
+                      <Tooltip content="When the simulation should stop. Portfolio will trend toward zero by this date." />
                     </div>
                     <input 
                       type="number"
@@ -707,6 +739,7 @@ export default function FIRE() {
                     <div className="flex items-center gap-2">
                       <Calendar size={12} className="text-amber-500/60" />
                       <label className="text-[10px] font-mono text-muted-foreground uppercase">Retire Year</label>
+                      <Tooltip content="Year you plan to stop working and start withdrawing from your portfolio." />
                     </div>
                     <input 
                       type="number"
@@ -724,6 +757,7 @@ export default function FIRE() {
                     <div className="flex items-center gap-2">
                       <Plane size={14} className="text-blue-400" />
                       <span className="text-[10px] font-mono uppercase text-foreground">Move Abroad</span>
+                      <Tooltip content="Simulate moving to a country with different capital gains or withdrawal taxes." />
                     </div>
                     <button 
                       onClick={() => setMoveAbroadEnabled(!moveAbroadEnabled)}
@@ -754,6 +788,7 @@ export default function FIRE() {
                   <div className="flex items-center gap-2">
                     <Landmark size={14} className="text-destructive" />
                     <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Dutch Box 3</span>
+                    <Tooltip content="Dutch wealth tax simulation. Models the transition from the bridging regime to the 2028 actual return regime." />
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
@@ -784,7 +819,10 @@ export default function FIRE() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono text-muted-foreground uppercase">Fiscal Partner</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-muted-foreground uppercase">Fiscal Partner</span>
+                        <Tooltip content="Double the tax-free allowance if you have a fiscal partner." />
+                      </div>
                       <button onClick={() => setBox3FiscalPartner(!box3FiscalPartner)} className={cn("w-8 h-4 rounded-full transition-colors relative", box3FiscalPartner ? "bg-accent" : "bg-white/10")}>
                         <div className={cn("absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all", box3FiscalPartner ? "right-0.5" : "left-0.5")} />
                       </button>
@@ -796,6 +834,7 @@ export default function FIRE() {
                   <div className="flex items-center gap-2">
                     <TrendingUp size={14} className="text-accent" />
                     <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Growth (%)</span>
+                    <Tooltip content="Annual increase in your monthly contribution amount (e.g., salary raises)." />
                   </div>
                   <button onClick={() => setGrowthEnabled(!growthEnabled)} className={cn("w-10 h-5 rounded-full transition-colors relative", growthEnabled ? "bg-accent" : "bg-white/10")}>
                     <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", growthEnabled ? "right-1" : "left-1")} />

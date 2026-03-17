@@ -6,6 +6,7 @@ import CSVImporter from '@/components/dashboard/CSVImporter';
 import ManualTradeRepublic from '@/components/dashboard/ManualTradeRepublic';
 import ManualABNAMRO from '@/components/dashboard/ManualABNAMRO';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
@@ -197,7 +198,10 @@ export default function Dashboard() {
       <section className="bg-card p-8 rounded-2xl border-t border-white/5 accent-glow animate-slide-up">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
-            <h2 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Total Net Worth</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Total Net Worth</h2>
+              <Tooltip content="Sum of all your liquid assets (cash, stocks, ETFs) and real estate equity." />
+            </div>
             <div className="text-5xl md:text-7xl font-mono font-bold tracking-tight text-accent overflow-hidden whitespace-nowrap">
               <AnimatedNumber 
                 value={totalNetWorth} 
@@ -220,11 +224,17 @@ export default function Dashboard() {
           
           <div className="grid grid-cols-2 gap-8 md:gap-12 pb-2">
             <div>
-              <p className="text-[10px] font-mono uppercase text-muted-foreground mb-1 tracking-wider">Liquid Assets</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Liquid Assets</p>
+                <Tooltip content="Cash and investments that can be quickly converted to currency." />
+              </div>
               <p className="text-xl font-bold font-mono text-foreground">{formatCurrency(liquidNetWorth)}</p>
             </div>
             <div className="text-right md:text-left">
-              <p className="text-[10px] font-mono uppercase text-muted-foreground mb-1 tracking-wider">Real Estate</p>
+              <div className="flex items-center justify-end md:justify-start gap-2 mb-1">
+                <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Real Estate</p>
+                <Tooltip content="Current market value of your property adjusted by your ownership % and mortgage pay-down." />
+              </div>
               <p className="text-xl font-bold font-mono text-foreground">{formatCurrency(propertyEquity)}</p>
             </div>
           </div>
@@ -236,7 +246,10 @@ export default function Dashboard() {
         {/* Net Worth Chart */}
         <section className="bg-card p-6 rounded-2xl border-t border-white/5 min-h-[350px]">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Wealth Growth</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Wealth Growth</h3>
+              <Tooltip content="Historical view of your total net worth over time." />
+            </div>
             <TrendingUp size={16} className="text-accent" />
           </div>
           <div className="h-64 w-full">
@@ -245,8 +258,8 @@ export default function Dashboard() {
                 <AreaChart data={snapshots} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#00E5C3" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#00E5C3" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
@@ -273,7 +286,7 @@ export default function Dashboard() {
                   <Area 
                     type="monotone" 
                     dataKey="net_worth" 
-                    stroke="var(--accent)" 
+                    stroke="#00E5C3" 
                     strokeWidth={3} 
                     fillOpacity={1} 
                     fill="url(#colorNetWorth)" 
@@ -299,7 +312,10 @@ export default function Dashboard() {
         {/* Allocation */}
         <section className="bg-card p-6 rounded-2xl border-t border-white/5 min-h-[350px]">
            <div className="flex items-center justify-between mb-8">
-            <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Asset Allocation</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Asset Allocation</h3>
+              <Tooltip content="Distribution of your wealth across different asset classes." />
+            </div>
             <MoreHorizontal size={16} className="text-muted-foreground" />
           </div>
           <div className="grid grid-cols-2 gap-4">

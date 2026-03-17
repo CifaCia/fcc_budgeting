@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { formatCurrency } from '@/lib/currency';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { 
   Plus, Trash2, TrendingUp,
   Check, X, ChevronLeft, ChevronRight, PieChart,
@@ -163,9 +164,12 @@ export default function Budget() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={14} className="text-accent" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Monthly Income</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-accent" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Monthly Income</span>
+            </div>
+            <Tooltip content="Your total after-tax income for this month." />
           </div>
           <div className="flex items-baseline gap-2 group">
             <span className="text-2xl font-mono font-bold text-accent">€</span>
@@ -180,9 +184,12 @@ export default function Budget() {
         </div>
 
         <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-100">
-          <div className="flex items-center gap-2 mb-4">
-            <Target size={14} className="text-blue-400" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Savings Target</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Target size={14} className="text-blue-400" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Savings Target</span>
+            </div>
+            <Tooltip content="The amount you aim to save after all budgeted expenses are paid." />
           </div>
           <div className="text-4xl font-mono font-bold">
             <AnimatedNumber value={expectedSaving} formatter={formatCurrency} />
@@ -195,9 +202,12 @@ export default function Budget() {
         </div>
 
         <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-200 shadow-2xl">
-          <div className="flex items-center gap-2 mb-4">
-            <PieChart size={14} className="text-amber-500" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Actual Savings</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <PieChart size={14} className="text-amber-500" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Actual Savings</span>
+            </div>
+            <Tooltip content="Income minus actual tracked spending for the selected month." />
           </div>
           <div className={cn("text-4xl font-mono font-bold", actualSaving >= expectedSaving ? "text-accent" : "text-destructive")}>
             <AnimatedNumber value={actualSaving} formatter={formatCurrency} />
@@ -217,7 +227,10 @@ export default function Budget() {
         {/* Definition */}
         <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden">
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
-            <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Define Allocation</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Define Allocation</h2>
+              <Tooltip content="Set your planned spending for each category. 'Fixed' items are recurrences like rent." />
+            </div>
             <div className="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded text-muted-foreground uppercase">
               Total: {formatCurrency(totalBudgeted)}
             </div>
@@ -280,7 +293,10 @@ export default function Budget() {
         {/* Comparison */}
         <section className="bg-card rounded-2xl border-t border-white/5 overflow-hidden h-fit">
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
-            <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Monthly Status</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Monthly Status</h2>
+              <Tooltip content="Real-time comparison between your budget and actual tracked spending." />
+            </div>
             <div className="text-[10px] font-mono font-bold bg-destructive/10 px-2 py-1 rounded text-destructive uppercase">
               Actual: {formatCurrency(totalActual)}
             </div>
