@@ -55,7 +55,6 @@ export default function FIRE() {
   
   // UI States
   const [showAdvancedBox3, setShowAdvancedBox3] = useState(false);
-  const [drawdownStrategy, setDrawdownStrategy] = useState<'perpetuity' | 'deplete'>('perpetuity');
 
   // Core Inputs
   const [cashBalanceOverride, setCashBalanceOverride] = useState<number | null>(null);
@@ -257,22 +256,20 @@ export default function FIRE() {
     return multiplier || 25;
   }, [fireMode, multiplier, withdrawalRate]);
 
-  // Calculate dynamic target based on time horizon if death year is set
+  // Dynamic target for Summary Card only
   const fireTarget = useMemo(() => {
     const baseTarget = (annualExpenses || 0) * effectiveMultiplier;
-    if (!deathYear || drawdownStrategy === 'perpetuity') return baseTarget;
+    if (!deathYear) return baseTarget;
 
     const currentYear = new Date().getFullYear();
-    const yearsRemaining = deathYear - (forcedRetirementYear || (currentYear + 15)); // Approximate
+    const yearsRemaining = deathYear - (forcedRetirementYear || (currentYear + 15));
     if (yearsRemaining <= 0) return annualExpenses;
 
-    // PV of Annuity: PMT * [(1 - (1+r)^-n) / r]
-    // We use real return rate for r.
     const r = realEtfReturnRate || 0.05;
     if (r === 0) return annualExpenses * yearsRemaining;
     const annuityFactor = (1 - Math.pow(1 + r, -yearsRemaining)) / r;
     return annualExpenses * annuityFactor;
-  }, [annualExpenses, effectiveMultiplier, deathYear, forcedRetirementYear, realEtfReturnRate, drawdownStrategy]);
+  }, [annualExpenses, effectiveMultiplier, deathYear, forcedRetirementYear, realEtfReturnRate]);
 
   const runSimulation = useCallback((targetMultiplier: number): FIREResult => {
     const target = (annualExpenses || 0) * (targetMultiplier || 25);
@@ -348,8 +345,9 @@ export default function FIRE() {
         if (isRetiredNow) {
           let monthlyExpenses = (annualExpenses / 12);
           
-          // DEPLETE logic: if we want to die with zero, withdraw (Portfolio / remaining months)
-          if (drawdownStrategy === 'deplete' && deathYear) {
+          // DIE WITH ZERO logic from pre-vercel commits: 
+          // Always spend (Portfolio / Months Left) to ensure zero at end.
+          if (deathYear) {
             const monthsLeft = Math.max(1, (deathYear - currentYearSim) * 12 + (12 - month));
             const portfolio = csh + etf;
             const optimalDraw = portfolio / monthsLeft;
@@ -404,7 +402,7 @@ export default function FIRE() {
       if (year === maxYears) break;
     }
     return { reached: reachedDate != null, date: reachedDate, years: reachedYears, data: dataPoints, target, totalBox3Paid, noTaxYears: noTaxReachedYears };
-  }, [annualExpenses, realEtfReturnRate, realCashReturnRate, currentCash, currentEtf, contributions, growthEnabled, growthRate, box3Enabled, box3Model, box3StartYear, box3FiscalPartner, box3Threshold, box3ReturnAllowance, box3DividendYield, box3TaxRate, forcedRetirementYear, moveAbroadEnabled, moveAbroadYear, moveAbroadTaxRate, deathYear, nominalReturn, cashInterestRate, drawdownStrategy]);
+  }, [annualExpenses, realEtfReturnRate, realCashReturnRate, currentCash, currentEtf, contributions, growthEnabled, growthRate, box3Enabled, box3Model, box3StartYear, box3FiscalPartner, box3Threshold, box3ReturnAllowance, box3DividendYield, box3TaxRate, forcedRetirementYear, moveAbroadEnabled, moveAbroadYear, moveAbroadTaxRate, deathYear, nominalReturn, cashInterestRate]);
 
   const baseResult = useMemo(() => runSimulation(effectiveMultiplier), [runSimulation, effectiveMultiplier]);
   const leanResult = useMemo(() => runSimulation(effectiveMultiplier * 0.7), [runSimulation, effectiveMultiplier]);
@@ -448,7 +446,7 @@ export default function FIRE() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'FIRE Target', value: fireTarget, icon: Target, color: 'text-accent', sub: `${effectiveMultiplier.toFixed(0)}x annual spend`, tip: "Total capital needed. Adjusted lower if 'Die with Zero' is active." },
+          { label: 'FIRE Target', value: fireTarget, icon: Target, color: 'text-accent', sub: `${effectiveMultiplier.toFixed(0)}x annual spend`, tip: "Total capital needed. Adjusted for your time horizon if Death Year is set." },
           { label: 'Projected Date', value: baseResult.date || '60y+', icon: Calendar, color: 'text-blue-400', sub: baseResult.reached ? `${baseResult.years?.toFixed(1)} years to go` : 'Target not met', tip: "Estimated date you reach your financial independence target." },
           { label: 'Progress', value: `${progressPercent.toFixed(1)}%`, icon: PieChartIcon, color: 'text-amber-500', sub: formatCurrency(currentNetWorth), tip: "Your current net worth as a percentage of your FIRE target." },
           { label: 'Lifetime Tax', value: baseResult.totalBox3Paid, icon: Landmark, color: 'text-destructive', sub: 'Estimated Box 3 drag', tip: "Total Dutch wealth tax paid over the simulation period." },
@@ -478,27 +476,11 @@ export default function FIRE() {
                 <h3 className="text-sm font-display font-semibold uppercase tracking-widest text-muted-foreground">Capital Projection</h3>
                 <Tooltip content="Future wealth projection including market growth, taxes, and contributions." />
               </div>
-              <div className="flex items-center gap-4">
-                {growthEnabled && (
-                  <span className="hidden sm:flex text-[10px] font-bold text-accent bg-accent/10 px-2 py-1 rounded border border-accent/20 items-center">
-                    <ArrowUpRight size={12} className="mr-1" /> Contributions +{(growthRate*100).toFixed(1)}%/yr
-                  </span>
-                )}
-                <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
-                  <button 
-                    onClick={() => setDrawdownStrategy('perpetuity')}
-                    className={cn("px-3 py-1 text-[9px] font-bold rounded-md transition-all uppercase", drawdownStrategy === 'perpetuity' ? "bg-accent text-black" : "text-muted-foreground hover:text-foreground")}
-                  >
-                    Perpetuity
-                  </button>
-                  <button 
-                    onClick={() => setDrawdownStrategy('deplete')}
-                    className={cn("px-3 py-1 text-[9px] font-bold rounded-md transition-all uppercase", drawdownStrategy === 'deplete' ? "bg-accent text-black" : "text-muted-foreground hover:text-foreground")}
-                  >
-                    Die With Zero
-                  </button>
-                </div>
-              </div>
+              {growthEnabled && (
+                <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-1 rounded border border-accent/20 flex items-center">
+                  <ArrowUpRight size={12} className="mr-1" /> Contributions +{(growthRate*100).toFixed(1)}%/yr
+                </span>
+              )}
             </div>
             <div className="h-[45vh] w-full min-h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -769,7 +751,7 @@ export default function FIRE() {
                     <div className="flex items-center gap-2">
                       <Skull size={12} className="text-destructive/60" />
                       <label className="text-[10px] font-mono text-muted-foreground uppercase">Death Year</label>
-                      <Tooltip content="When the simulation should stop. If 'Die with Zero' is enabled, the budget will be adjusted to hit zero by this year." />
+                      <Tooltip content="When the simulation should stop. Portfolio will be spent down to hit zero by this date." />
                     </div>
                     <input 
                       type="number"
