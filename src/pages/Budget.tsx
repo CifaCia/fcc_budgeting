@@ -7,7 +7,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { 
   Plus, Trash2, TrendingUp,
   Check, X, ChevronLeft, ChevronRight, PieChart as PieChartIcon,
-  Target, Info, ArrowUpRight, ArrowDownRight, LayoutDashboard,
+  Target, ArrowUpRight, ArrowDownRight, LayoutDashboard,
   Edit2
 } from 'lucide-react';
 import { 
@@ -466,7 +466,7 @@ export default function Budget() {
             </div>
 
             <div className="divide-y divide-white/5">
-              {budgetItems.map((item, idx) => (
+              {budgetItems.map((item) => (
                 <div key={item.id} className="group hover:bg-white/[0.01] transition-colors">
                   {editingId === item.id ? (
                     <div className="p-6 md:p-8 bg-white/[0.03] space-y-6">
