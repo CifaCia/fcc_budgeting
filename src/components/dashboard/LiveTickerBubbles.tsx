@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/currency';
-import { TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Position } from '@/lib/usePortfolio';
+import type { Position } from '@/lib/usePortfolio';
 
 interface LivePrice {
   ticker: string;
@@ -28,7 +28,6 @@ export function LiveTickerBubbles({ positions }: { positions: Position[] }) {
 
     try {
       // Fetch from Yahoo Finance via a CORS-friendly approach or sequential fetches
-      // Note: In a production env, you'd use a dedicated proxy or edge function
       await Promise.all(tickers.map(async (ticker) => {
         try {
           const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);

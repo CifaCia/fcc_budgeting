@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { convertToEUR } from '@/lib/currency';
-import { parseHoldingsFromRaw, Holding } from '@/lib/csvParsers';
+import { parseHoldingsFromRaw } from '@/lib/csvParsers';
+import type { Holding } from '@/lib/csvParsers';
 
 export interface PortfolioPrice {
   isin: string;

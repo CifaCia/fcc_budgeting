@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { convertToEUR, formatCurrency } from '@/lib/currency';
-import { usePortfolio, Position } from '@/lib/usePortfolio';
+import { formatCurrency } from '@/lib/currency';
+import { usePortfolio } from '@/lib/usePortfolio';
+import type { Position } from '@/lib/usePortfolio';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { 
@@ -255,7 +256,7 @@ export default function Portfolio() {
                         <div className="flex flex-col">
                           <span className="text-[11px] font-mono text-muted-foreground">{p.isin}</span>
                           <div className="flex items-center gap-1 group/ticker">
-                            {editingField?.isin === p.isin && editingField.field === 'ticker' ? (
+                            {editingField?.isin === p.isin && editingField?.field === 'ticker' ? (
                               <input 
                                 autoFocus
                                 className="bg-white/10 border border-white/20 rounded px-1 text-[10px] font-mono w-20"
@@ -344,7 +345,7 @@ export default function Portfolio() {
                               <div className="flex gap-4">
                                 <div className="flex flex-col items-end">
                                   <span className="text-[9px] text-muted-foreground uppercase font-mono">Geography</span>
-                                  {editingField?.isin === p.isin && editingField.field === 'geography' ? (
+                                  {editingField?.isin === p.isin && editingField?.field === 'geography' ? (
                                     <select 
                                       className="bg-white/10 border border-white/20 rounded text-[10px] font-mono"
                                       value={p.geography}
@@ -364,7 +365,7 @@ export default function Portfolio() {
                                 </div>
                                 <div className="flex flex-col items-end">
                                   <span className="text-[9px] text-muted-foreground uppercase font-mono">Sector</span>
-                                  {editingField?.isin === p.isin && editingField.field === 'sector' ? (
+                                  {editingField?.isin === p.isin && editingField?.field === 'sector' ? (
                                     <select 
                                       className="bg-white/10 border border-white/20 rounded text-[10px] font-mono"
                                       value={p.sector}
@@ -441,7 +442,7 @@ export default function Portfolio() {
                   innerRadius={60} outerRadius={80} 
                   paddingAngle={8} dataKey="value"
                 >
-                  {allocationBySource.map((entry, index) => (
+                  {allocationBySource.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={['#00E5C3', '#3B82F6', '#6366F1', '#F59E0B'][index % 4]} stroke="none" />
                   ))}
                 </Pie>

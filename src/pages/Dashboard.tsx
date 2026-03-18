@@ -65,7 +65,7 @@ const SOURCE_COLORS: Record<string, string> = {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { totalPortfolioValue, hasPricesForAll, cashTotal, positions, loading: portfolioLoading } = usePortfolio();
+  const { totalPortfolioValue, hasPricesForAll, cashTotal, positions } = usePortfolio();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
