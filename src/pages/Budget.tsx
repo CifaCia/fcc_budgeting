@@ -449,9 +449,9 @@ export default function Budget() {
                 <button 
                   type="button"
                   onClick={handleAddRow}
-                  className="w-full bg-accent text-black h-14 rounded-2xl font-mono font-bold text-base uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 shadow-lg shadow-accent/20"
+                  className="w-full bg-accent text-black h-11 rounded-xl font-mono font-bold text-sm uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
                 >
-                  <Plus size={24} /> Confirm and Add Entry
+                  <Plus size={18} /> Confirm and Add Entry
                 </button>
               </div>
             </div>
@@ -476,8 +476,8 @@ export default function Budget() {
                         <input type="number" className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                       </div>
                       <div className="flex gap-4">
-                        <button type="button" onClick={saveEdit} className="flex-[2] bg-accent text-black h-12 rounded-xl font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-lg"><Check size={18} /> Save Changes</button>
-                        <button type="button" onClick={() => setEditingId(null)} className="flex-1 bg-white/5 text-muted-foreground h-12 rounded-xl font-mono font-bold text-xs uppercase">Cancel</button>
+                        <button type="button" onClick={saveEdit} className="flex-[2] bg-accent text-black h-10 rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg"><Check size={16} /> Save Changes</button>
+                        <button type="button" onClick={() => setEditingId(null)} className="flex-1 bg-white/5 text-muted-foreground h-10 rounded-xl font-mono font-bold text-[10px] uppercase">Cancel</button>
                       </div>
                     </div>
                   ) : (
