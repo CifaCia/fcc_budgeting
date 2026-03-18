@@ -27,10 +27,11 @@ export function LiveTickerBubbles({ positions }: { positions: Position[] }) {
     const newPrices: Record<string, LivePrice> = {};
 
     try {
-      // Fetch from Yahoo Finance via a CORS-friendly approach or sequential fetches
+      // Fetch from Yahoo Finance via a CORS proxy to bypass browser restrictions
       await Promise.all(tickers.map(async (ticker) => {
         try {
-          const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
+          const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`)}`);
+          if (!res.ok) throw new Error('Proxy failed');
           const data = await res.json();
           const meta = data.chart.result[0].meta;
           newPrices[ticker] = {
@@ -40,7 +41,21 @@ export function LiveTickerBubbles({ positions }: { positions: Position[] }) {
             changePercent: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100
           };
         } catch (e) {
-          console.error(`Failed to fetch ${ticker}`, e);
+          console.warn(`Failed to fetch ${ticker} via proxy, trying direct...`, e);
+          try {
+            // Direct fallback (might fail CORS but worth a shot)
+            const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
+            const data = await res.json();
+            const meta = data.chart.result[0].meta;
+            newPrices[ticker] = {
+              ticker,
+              price: meta.regularMarketPrice,
+              change: meta.regularMarketPrice - meta.previousClose,
+              changePercent: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100
+            };
+          } catch (e2) {
+            console.error(`Full failure for ${ticker}`, e2);
+          }
         }
       }));
       setLivePrices(newPrices);

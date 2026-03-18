@@ -46,39 +46,73 @@ export const parseHoldingsFromRaw = (source: string, raw: any): { isin: string; 
   };
 
   if (source === 'degiro' || source === 'degiro_portfolio') {
-    // Both standard transactions and portfolio exports can have varying columns.
-    // We scan the entire row for an ISIN (2 letters + 10 digits/letters).
     const isinIdx = raw.findIndex((col: string) => /^[A-Z]{2}[A-Z0-9]{10}$/.test(col));
     if (isinIdx === -1) return null;
 
     const isin = raw[isinIdx];
     const name = raw[0] || raw[2]; 
     
+    // Extract all numeric values from the row to find the right ones
+    const allNumerics = raw.map((v: string, idx: number) => ({ 
+      val: Math.abs(parseAmount(v)), 
+      idx, 
+      original: v 
+    })).filter((n: any) => n.original && !isNaN(n.val) && n.val !== 0);
+
     let quantity = 0;
     let price = 0;
     let ticker = undefined;
 
-    if (source === 'degiro') {
-      // Standard Transaction CSV offsets (from Date,Time,Product,ISIN...):
-      // ISIN at 3, Quantity at 6, Price at 7
-      quantity = parseAmount(raw[6]);
-      price = parseAmount(raw[7]);
-    } else {
-      // Portfolio Export offsets:
-      if (isinIdx === 2) {
-        ticker = raw[1];
-        quantity = parseAmount(raw[3]);
-        price = parseAmount(raw[5] || raw[4]);
-      } else if (isinIdx === 1) {
-        quantity = parseAmount(raw[2]);
-        price = parseAmount(raw[3]);
+    // Smart heuristic: In a portfolio row, we usually have Qty, Price, and Value.
+    // Value = Qty * Price. We look for a trio that satisfies this.
+    let foundMatch = false;
+    let bestMatch = { q: 0, p: 0, score: -1 };
+
+    for (let i = 0; i < allNumerics.length; i++) {
+      for (let j = 0; j < allNumerics.length; j++) {
+        if (i === j) continue;
+        const q = allNumerics[i].val;
+        const p = allNumerics[j].val;
+        const product = q * p;
+        
+        const match = allNumerics.find((n: any, idx: number) => 
+          idx !== i && idx !== j && Math.abs(n.val - product) / (n.val || 1) < 0.01
+        );
+
+        if (match) {
+          // Heuristic score: Prefer combinations where Quantity is smaller than Value,
+          // and Price is a reasonable number.
+          let score = 0;
+          if (q < match.val) score += 10;
+          if (p > 1) score += 5;
+          if (q % 1 === 0) score += 5; // Quantity is often an integer
+
+          if (score > bestMatch.score) {
+            bestMatch = { q, p, score };
+            foundMatch = true;
+          }
+        }
+      }
+    }
+
+    if (foundMatch) {
+      quantity = bestMatch.q;
+      price = bestMatch.p;
+    }
+
+    // Fallback to old reliable offsets if heuristic fails
+    if (!foundMatch) {
+      if (source === 'degiro') {
+        quantity = parseAmount(raw[6]);
+        price = parseAmount(raw[7]);
       } else {
-        // Fallback: look for the first two numeric values after ISIN
-        const remaining = raw.slice(isinIdx + 1);
-        const numerics = remaining.map((v: string) => ({ val: parseAmount(v), original: v })).filter((n: any) => n.original && !isNaN(n.val) && n.val !== 0);
-        if (numerics.length >= 2) {
-          quantity = numerics[0].val;
-          price = numerics[1].val;
+        if (isinIdx === 2) {
+          ticker = raw[1];
+          quantity = parseAmount(raw[3]);
+          price = parseAmount(raw[5] || raw[4]);
+        } else if (isinIdx === 1) {
+          quantity = parseAmount(raw[2]);
+          price = parseAmount(raw[3]);
         }
       }
     }
