@@ -381,6 +381,7 @@ export default function Budget() {
               <Tooltip content="Define your monthly spending plan. Fixed items are recurrences like rent." />
             </div>
             <button 
+              type="button"
               onClick={() => setShowAddForm(!showAddForm)}
               className={cn(
                 "flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase transition-all shadow-lg active:scale-95",
@@ -406,7 +407,7 @@ export default function Budget() {
                         autoFocus
                         onKeyDown={e => e.key === 'Enter' && handleAddRow()}
                       />
-                      <button onClick={() => setIsAddingNewCategory(false)} className="p-3 text-destructive bg-white/5 rounded-xl"><X size={18} /></button>
+                      <button type="button" onClick={() => setIsAddingNewCategory(false)} className="p-3 text-destructive bg-white/5 rounded-xl"><X size={18} /></button>
                     </div>
                   ) : (
                     <select 
@@ -454,6 +455,7 @@ export default function Budget() {
 
                 <div className="flex gap-2">
                   <button 
+                    type="button"
                     onClick={() => setNewItem({...newItem, isFixed: !newItem.isFixed})}
                     className={cn(
                       "flex-1 h-[46px] rounded-xl border flex items-center justify-center gap-2 transition-all font-mono text-[10px] uppercase font-bold",
@@ -466,6 +468,7 @@ export default function Budget() {
                     Fixed
                   </button>
                   <button 
+                    type="button"
                     onClick={handleAddRow}
                     className="flex-1 bg-accent text-black h-[46px] rounded-xl font-mono font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
                   >
@@ -504,11 +507,11 @@ export default function Budget() {
                           <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-foreground focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("flex-1 h-[42px] rounded-xl border flex items-center justify-center gap-2 text-[9px] font-mono uppercase", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
+                          <button type="button" onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("flex-1 h-[42px] rounded-xl border flex items-center justify-center gap-2 text-[9px] font-mono uppercase", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
                             Fixed
                           </button>
-                          <button onClick={saveEdit} className="flex-1 bg-accent text-black h-[42px] rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg shadow-accent/20"><Check size={14} /> Save</button>
-                          <button onClick={() => setEditingId(null)} className="p-2.5 bg-white/5 text-muted-foreground rounded-xl hover:bg-white/10"><X size={16} /></button>
+                          <button type="button" onClick={saveEdit} className="flex-1 bg-accent text-black h-[42px] rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg shadow-accent/20"><Check size={14} /> Save</button>
+                          <button type="button" onClick={() => setEditingId(null)} className="p-2.5 bg-white/5 text-muted-foreground rounded-xl hover:bg-white/10"><X size={16} /></button>
                         </div>
                       </div>
                     </div>
@@ -537,8 +540,8 @@ export default function Budget() {
                       </div>
 
                       <div className="w-full md:w-auto flex items-center justify-end gap-4 md:gap-2">
-                        <button onClick={() => startEdit(item)} className="p-2 text-muted-foreground hover:text-accent transition-colors"><Edit2 size={16} /></button>
-                        <button onClick={() => handleDelete(item.id)} className="p-2 text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={16} /></button>
+                        <button type="button" onClick={() => startEdit(item)} className="p-2 text-muted-foreground hover:text-accent transition-colors"><Edit2 size={16} /></button>
+                        <button type="button" onClick={() => handleDelete(item.id)} className="p-2 text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   )}
@@ -548,7 +551,7 @@ export default function Budget() {
                 <div className="p-12 text-center">
                   <PieChartIcon size={40} className="mx-auto text-white/5 mb-4" />
                   <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">No budget allocation defined yet.</p>
-                  <button onClick={() => setShowAddForm(true)} className="mt-4 text-xs font-bold text-accent underline underline-offset-4">Create first entry</button>
+                  <button type="button" onClick={() => setShowAddForm(true)} className="mt-4 text-xs font-bold text-accent underline underline-offset-4">Create first entry</button>
                 </div>
               )}
             </div>
