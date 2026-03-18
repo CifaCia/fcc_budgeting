@@ -34,7 +34,7 @@ interface BudgetItem {
   is_fixed: boolean;
 }
 
-console.log("[Budget] File Loaded - Version 1.4");
+console.log("[Budget] File Loaded - Version 1.5");
 
 export default function Budget() {
   const { user } = useAuth();
@@ -157,7 +157,6 @@ export default function Budget() {
     if (!error) setBudgetItems(budgetItems.filter(item => item.id !== id));
   };
 
-  // Debounced Income Update
   useEffect(() => {
     const timer = setTimeout(async () => {
       const amount = parseFloat(incomeInput) || 0;
@@ -200,7 +199,6 @@ export default function Budget() {
     setEditingId(null);
   };
 
-  // Calculations
   const totalBudgeted = budgetItems.reduce((sum, i) => sum + i.expected_monthly, 0);
   const totalActual = Object.values(actualSpend).reduce((sum, v) => sum + v, 0);
   const expectedSaving = monthlyIncome - totalBudgeted;
@@ -232,7 +230,7 @@ export default function Budget() {
   );
 
   return (
-    <div className="space-y-8 pb-32 animate-fade-in">
+    <div className="space-y-8 pb-32">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-display font-bold tracking-tight">Budget Planner</h1>
@@ -253,7 +251,7 @@ export default function Budget() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up">
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <TrendingUp size={14} className="text-accent" />
@@ -273,7 +271,7 @@ export default function Budget() {
           <p className="text-[10px] text-muted-foreground mt-4 font-mono uppercase">Adjustable input</p>
         </div>
 
-        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-100">
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Target size={14} className="text-blue-400" />
@@ -291,7 +289,7 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up delay-200">
+        <div className="bg-card p-6 rounded-2xl border-t border-white/5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <PieChartIcon size={14} className="text-amber-500" />
@@ -312,7 +310,7 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-card p-4 rounded-2xl border-t border-white/5 animate-slide-up delay-300 flex items-center gap-4">
+        <div className="bg-card p-4 rounded-2xl border-t border-white/5 shadow-xl flex items-center gap-4">
           <div className="w-24 h-24 shrink-0">
             {categoryData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -366,7 +364,7 @@ export default function Budget() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Definition */}
+        {/* Definition Section */}
         <section className="flex-1 space-y-4">
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
@@ -378,7 +376,7 @@ export default function Budget() {
               onClick={() => setShowAddForm(!showAddForm)}
               className={cn(
                 "flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase transition-all shadow-xl",
-                showAddForm ? "bg-white text-black" : "bg-accent text-black"
+                showAddForm ? "bg-white text-black" : "bg-[#00E5C3] text-black"
               )}
             >
               {showAddForm ? <><X size={14} /> Cancel</> : <><Plus size={14} /> New Entry</>}
@@ -386,7 +384,7 @@ export default function Budget() {
           </div>
 
           {showAddForm && (
-            <div className="bg-card p-6 md:p-8 rounded-3xl border border-accent/30 animate-slide-up space-y-6 shadow-2xl">
+            <div className="bg-card p-6 md:p-8 rounded-3xl border border-accent/30 space-y-6 shadow-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-accent uppercase tracking-widest font-bold">1. Category</label>
@@ -455,7 +453,7 @@ export default function Budget() {
                 <button 
                   type="button"
                   onClick={handleAddRow}
-                  className="w-full bg-accent text-black h-11 rounded-xl font-mono font-bold text-sm uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
+                  className="w-full bg-[#00E5C3] text-black h-11 rounded-xl font-mono font-bold text-sm uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
                 >
                   <Plus size={18} /> Confirm and Add Entry
                 </button>
@@ -482,7 +480,7 @@ export default function Budget() {
                         <input type="number" className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                       </div>
                       <div className="flex gap-4">
-                        <button type="button" onClick={saveEdit} className="flex-[2] bg-accent text-black h-10 rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg"><Check size={16} /> Save Changes</button>
+                        <button type="button" onClick={saveEdit} className="flex-[2] bg-[#00E5C3] text-black h-10 rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg"><Check size={16} /> Save Changes</button>
                         <button type="button" onClick={() => setEditingId(null)} className="flex-1 bg-white/5 text-muted-foreground h-10 rounded-xl font-mono font-bold text-[10px] uppercase">Cancel</button>
                       </div>
                     </div>
