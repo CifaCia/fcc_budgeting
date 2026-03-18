@@ -393,8 +393,10 @@ export default function Budget() {
           </div>
 
           {showAddForm && (
-            <div className="bg-card p-6 md:p-8 rounded-3xl border border-accent/20 animate-slide-up space-y-6 shadow-2xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+            <div className="bg-card p-6 md:p-8 rounded-3xl border border-accent/20 animate-slide-up space-y-6 shadow-2xl relative">
+              <button type="button" onClick={() => setShowAddForm(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"><X size={20} /></button>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <div className="space-y-2">
                   <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Category</label>
                   {isAddingNewCategory ? (
@@ -421,11 +423,11 @@ export default function Budget() {
                         }
                       }}
                     >
-                      <option value="">Select...</option>
+                      <option value="">Select Category...</option>
                       {availableCategories.map(cat => (
                         <option key={cat} value={cat} className="bg-[#0A0A0A]">{cat}</option>
                       ))}
-                      <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ New Category...</option>
+                      <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ Add New...</option>
                     </select>
                   )}
                 </div>
@@ -442,7 +444,7 @@ export default function Budget() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Amount (€)</label>
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Monthly Amount (€)</label>
                   <input 
                     type="number"
                     placeholder="0.00" 
@@ -452,29 +454,29 @@ export default function Budget() {
                     onKeyDown={e => e.key === 'Enter' && handleAddRow()}
                   />
                 </div>
+              </div>
 
-                <div className="flex gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => setNewItem({...newItem, isFixed: !newItem.isFixed})}
-                    className={cn(
-                      "flex-1 h-[46px] rounded-xl border flex items-center justify-center gap-2 transition-all font-mono text-[10px] uppercase font-bold",
-                      newItem.isFixed ? "bg-accent/10 border-accent/30 text-accent" : "bg-white/5 border-white/10 text-muted-foreground"
-                    )}
-                  >
-                    <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", newItem.isFixed ? "bg-accent border-accent text-black" : "border-white/20")}>
-                      {newItem.isFixed && <Check size={12} />}
-                    </div>
-                    Fixed
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={handleAddRow}
-                    className="flex-1 bg-accent text-black h-[46px] rounded-xl font-mono font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
-                  >
-                    <Plus size={18} /> Confirm
-                  </button>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-white/5">
+                <button 
+                  type="button"
+                  onClick={() => setNewItem({...newItem, isFixed: !newItem.isFixed})}
+                  className={cn(
+                    "flex-1 h-14 rounded-2xl border flex items-center justify-center gap-3 transition-all font-mono text-xs uppercase font-bold",
+                    newItem.isFixed ? "bg-accent/10 border-accent/30 text-accent" : "bg-white/5 border-white/10 text-muted-foreground"
+                  )}
+                >
+                  <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", newItem.isFixed ? "bg-accent border-accent text-black" : "border-white/20")}>
+                    {newItem.isFixed && <Check size={14} />}
+                  </div>
+                  Fixed Expense / Recurring
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleAddRow}
+                  className="flex-[2] bg-accent text-black h-14 rounded-2xl font-mono font-bold text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
+                >
+                  <Plus size={20} /> Confirm and Add Entry
+                </button>
               </div>
             </div>
           )}
@@ -492,27 +494,31 @@ export default function Budget() {
               {budgetItems.map((item, idx) => (
                 <div key={item.id} className="group hover:bg-white/[0.01] transition-colors animate-fade-in" style={{ animationDelay: `${idx * 40}ms` }}>
                   {editingId === item.id ? (
-                    <div className="p-6 md:p-8 bg-white/[0.02] animate-slide-up">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div className="p-6 md:p-8 bg-white/[0.02] animate-slide-up space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-1">
-                          <label className="text-[9px] font-mono text-muted-foreground uppercase">Category</label>
-                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-mono text-muted-foreground uppercase">Name</label>
-                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-foreground focus:ring-accent" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
+                          <label className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">Category</label>
+                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9px] font-mono text-muted-foreground uppercase">Amount</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-foreground focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
+                          <label className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">Entry Name</label>
+                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("flex-1 h-[42px] rounded-xl border flex items-center justify-center gap-2 text-[9px] font-mono uppercase", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
-                            Fixed
-                          </button>
-                          <button type="button" onClick={saveEdit} className="flex-1 bg-accent text-black h-[42px] rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg shadow-accent/20"><Check size={14} /> Save</button>
-                          <button type="button" onClick={() => setEditingId(null)} className="p-2.5 bg-white/5 text-muted-foreground rounded-xl hover:bg-white/10"><X size={16} /></button>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">Monthly Amount</label>
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-foreground focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-white/5">
+                        <button type="button" onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 text-[10px] font-mono uppercase font-bold", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
+                          <div className={cn("w-4 h-4 rounded border flex items-center justify-center", editValue?.is_fixed ? "bg-accent border-accent text-black" : "border-white/20")}>
+                            {editValue?.is_fixed && <Check size={12} />}
+                          </div>
+                          Fixed Expense
+                        </button>
+                        <button type="button" onClick={saveEdit} className="flex-[2] bg-accent text-black h-12 rounded-xl font-mono font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-accent/20"><Check size={18} /> Save Changes</button>
+                        <button type="button" onClick={() => setEditingId(null)} className="px-6 bg-white/5 text-muted-foreground rounded-xl font-mono font-bold text-xs uppercase hover:bg-white/10 transition-all">Cancel</button>
                       </div>
                     </div>
                   ) : (
