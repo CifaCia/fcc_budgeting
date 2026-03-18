@@ -187,6 +187,8 @@ export default function Budget() {
 
   const saveEdit = async () => {
     if (!editValue) return;
+    console.log("Saving changes for item:", editValue.id, editValue);
+
     const { error } = await supabase.from('budget_items').update({
       category: editValue.category,
       label: editValue.label,
@@ -194,10 +196,15 @@ export default function Budget() {
       is_fixed: editValue.is_fixed
     }).eq('id', editValue.id);
 
-    if (!error) {
-      setBudgetItems(budgetItems.map(i => i.id === editValue.id ? editValue : i));
-      setEditingId(null);
+    if (error) {
+      console.error("Error updating budget item:", error);
+      alert(`Error saving changes: ${error.message}`);
+      return;
     }
+
+    setBudgetItems(budgetItems.map(i => i.id === editValue.id ? editValue : i));
+    setEditingId(null);
+    console.log("Changes saved successfully");
   };
 
   // Calculations
@@ -376,27 +383,28 @@ export default function Budget() {
             <button 
               onClick={() => setShowAddForm(!showAddForm)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold uppercase transition-all",
+                "flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase transition-all shadow-lg active:scale-95",
                 showAddForm ? "bg-white text-black" : "bg-accent text-black"
               )}
             >
-              {showAddForm ? <><X size={14} /> Close</> : <><Plus size={14} /> New Entry</>}
+              {showAddForm ? <><X size={14} /> Close Form</> : <><Plus size={14} /> New Entry</>}
             </button>
           </div>
 
           {showAddForm && (
-            <div className="bg-card p-6 rounded-3xl border border-accent/20 animate-slide-up space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card p-6 md:p-8 rounded-3xl border border-accent/20 animate-slide-up space-y-6 shadow-2xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                 <div className="space-y-2">
                   <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Category</label>
                   {isAddingNewCategory ? (
                     <div className="flex gap-2">
                       <input 
-                        placeholder="New Category Name..." 
+                        placeholder="Name..." 
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent focus:border-accent" 
                         value={newCategoryName} 
                         onChange={e => setNewCategoryName(e.target.value)} 
                         autoFocus
+                        onKeyDown={e => e.key === 'Enter' && handleAddRow()}
                       />
                       <button onClick={() => setIsAddingNewCategory(false)} className="p-3 text-destructive bg-white/5 rounded-xl"><X size={18} /></button>
                     </div>
@@ -412,11 +420,11 @@ export default function Budget() {
                         }
                       }}
                     >
-                      <option value="">Select Category...</option>
+                      <option value="">Select...</option>
                       {availableCategories.map(cat => (
                         <option key={cat} value={cat} className="bg-[#0A0A0A]">{cat}</option>
                       ))}
-                      <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ Add New Category...</option>
+                      <option value="ADD_NEW" className="bg-[#0A0A0A] font-bold text-accent">+ New Category...</option>
                     </select>
                   )}
                 </div>
@@ -424,53 +432,46 @@ export default function Budget() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Entry Name</label>
                   <input 
-                    placeholder="e.g. Rent, Netflix, Groceries..." 
+                    placeholder="e.g. Netflix..." 
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:ring-accent focus:border-accent" 
                     value={newItem.label} 
                     onChange={e => setNewItem({...newItem, label: e.target.value})} 
+                    onKeyDown={e => e.key === 'Enter' && handleAddRow()}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Monthly Amount (€)</label>
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Amount (€)</label>
                   <input 
                     type="number"
                     placeholder="0.00" 
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-foreground focus:ring-accent focus:border-accent" 
                     value={newItem.amount} 
                     onChange={e => setNewItem({...newItem, amount: e.target.value})} 
+                    onKeyDown={e => e.key === 'Enter' && handleAddRow()}
                   />
                 </div>
 
-                <div className="flex items-end">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => setNewItem({...newItem, isFixed: !newItem.isFixed})}
                     className={cn(
-                      "w-full h-[46px] rounded-xl border flex items-center justify-center gap-3 transition-all font-mono text-[10px] uppercase font-bold",
+                      "flex-1 h-[46px] rounded-xl border flex items-center justify-center gap-2 transition-all font-mono text-[10px] uppercase font-bold",
                       newItem.isFixed ? "bg-accent/10 border-accent/30 text-accent" : "bg-white/5 border-white/10 text-muted-foreground"
                     )}
                   >
                     <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", newItem.isFixed ? "bg-accent border-accent text-black" : "border-white/20")}>
                       {newItem.isFixed && <Check size={12} />}
                     </div>
-                    Fixed Expense / Recurring
+                    Fixed
+                  </button>
+                  <button 
+                    onClick={handleAddRow}
+                    className="flex-1 bg-accent text-black h-[46px] rounded-xl font-mono font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
+                  >
+                    <Plus size={18} /> Confirm
                   </button>
                 </div>
-              </div>
-
-              <div className="flex gap-4 pt-2">
-                <button 
-                  onClick={handleAddRow}
-                  className="flex-1 bg-accent text-black h-14 rounded-2xl font-mono font-bold text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
-                >
-                  <Plus size={18} /> Add Entry
-                </button>
-                <button 
-                  onClick={() => setShowAddForm(false)}
-                  className="px-6 bg-white/5 text-muted-foreground rounded-2xl font-mono font-bold text-xs uppercase hover:bg-white/10 transition-all"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
           )}
@@ -488,32 +489,27 @@ export default function Budget() {
               {budgetItems.map((item, idx) => (
                 <div key={item.id} className="group hover:bg-white/[0.01] transition-colors animate-fade-in" style={{ animationDelay: `${idx * 40}ms` }}>
                   {editingId === item.id ? (
-                    <div className="p-6 md:p-8 space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-6 md:p-8 bg-white/[0.02] animate-slide-up">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div className="space-y-1">
                           <label className="text-[9px] font-mono text-muted-foreground uppercase">Category</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} />
+                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-foreground focus:ring-accent" value={editValue?.category} onChange={e => setEditValue(v => v ? {...v, category: e.target.value} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9px] font-mono text-muted-foreground uppercase">Name</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-foreground focus:ring-accent" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} />
+                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-foreground focus:ring-accent" value={editValue?.label || ''} onChange={e => setEditValue(v => v ? {...v, label: e.target.value} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9px] font-mono text-muted-foreground uppercase">Amount</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs font-mono text-foreground focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-foreground focus:ring-accent" value={editValue?.expected_monthly} onChange={e => setEditValue(v => v ? {...v, expected_monthly: parseFloat(e.target.value)} : null)} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                         </div>
-                        <div className="flex items-end">
-                          <button onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("w-full h-[42px] rounded-xl border flex items-center justify-center gap-2 text-[10px] font-mono uppercase", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
-                            <div className={cn("w-3.5 h-3.5 rounded border flex items-center justify-center", editValue?.is_fixed ? "bg-accent border-accent text-black" : "border-white/20")}>
-                              {editValue?.is_fixed && <Check size={10} />}
-                            </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditValue(v => v ? {...v, is_fixed: !v.is_fixed} : null)} className={cn("flex-1 h-[42px] rounded-xl border flex items-center justify-center gap-2 text-[9px] font-mono uppercase", editValue?.is_fixed ? "bg-accent/10 border-accent/20 text-accent" : "bg-white/5 border-white/10 text-muted-foreground")}>
                             Fixed
                           </button>
+                          <button onClick={saveEdit} className="flex-1 bg-accent text-black h-[42px] rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg shadow-accent/20"><Check size={14} /> Save</button>
+                          <button onClick={() => setEditingId(null)} className="p-2.5 bg-white/5 text-muted-foreground rounded-xl hover:bg-white/10"><X size={16} /></button>
                         </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <button onClick={saveEdit} className="flex-1 bg-accent text-black py-3 rounded-xl font-mono font-bold text-[10px] uppercase flex items-center justify-center gap-2"><Check size={16} /> Save Changes</button>
-                        <button onClick={() => setEditingId(null)} className="px-6 bg-white/5 text-muted-foreground rounded-xl font-mono font-bold text-[10px] uppercase"><X size={16} /></button>
                       </div>
                     </div>
                   ) : (
@@ -624,7 +620,7 @@ export default function Budget() {
                       <span className="text-[9px] font-mono text-destructive uppercase tracking-widest mb-1">Uncategorized</span>
                       <span className="text-xs font-bold text-destructive italic">{cat}</span>
                     </div>
-                    <div className="text-right flex flex-col items-end">
+                    <div classNametext-right flex flex-col items-end">
                       <span className="text-xs font-mono font-bold text-destructive">-{formatCurrency(actualSpend[cat])}</span>
                     </div>
                   </div>
