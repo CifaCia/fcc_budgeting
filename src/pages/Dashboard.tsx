@@ -186,6 +186,17 @@ export default function Dashboard() {
       return data;
     }
 
+    const breakdown = transactions.reduce((acc, t) => {
+      const type = t.asset_type || 'other';
+      acc[type] = (acc[type] || 0) + convertToEUR(t.amount, t.currency);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const data = Object.entries(breakdown).map(([name, value]) => ({ name, value }));
+    if (propertyEquity > 0) data.push({ name: 'property', value: propertyEquity });
+    return data;
+  }, [transactions, propertyEquity, hasPricesForAll, cashTotal, totalPortfolioValue]);
+
   const lastMonthSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : (snapshots[0] || null);
   const delta = lastMonthSnapshot ? totalNetWorth - lastMonthSnapshot.net_worth : 0;
   const deltaPercent = lastMonthSnapshot && lastMonthSnapshot.net_worth > 0 ? (delta / lastMonthSnapshot.net_worth) * 100 : 0;
