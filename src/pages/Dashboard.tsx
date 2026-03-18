@@ -11,12 +11,10 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal, PieChart as PieChartIcon, ExternalLink } from 'lucide-react';
+import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal, PieChart as PieChartIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePortfolio } from '@/lib/usePortfolio';
-import { Link } from 'react-router-dom';
 import { LiveTickerBubbles } from '@/components/dashboard/LiveTickerBubbles';
-import { applySmartTickers } from '@/lib/smartTickers';
 
 interface Transaction {
   id: string;
@@ -165,7 +163,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-    if (user) applySmartTickers(user.id);
   }, [user]);
 
   const liquidNetWorth = useMemo(() => {
@@ -212,15 +209,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 pb-32">
-      <LiveTickerBubbles positions={positions} />
-      
-      {hasPricesForAll && (
-        <Link to="/portfolio" className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-accent uppercase tracking-widest hover:underline mb-2">
-          <ExternalLink size={12} />
-          Holdings data available — view Portfolio
-        </Link>
-      )}
-
       {/* Hero Section */}
       <section className="bg-card p-8 rounded-2xl border-t border-white/5 accent-glow animate-slide-up">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -235,6 +223,9 @@ export default function Dashboard() {
                 formatter={(v) => `€${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} 
               />
             </div>
+
+            <LiveTickerBubbles positions={positions} />
+
             <div className="flex items-center gap-3 pt-2">
               <div className={cn(
                 "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold",

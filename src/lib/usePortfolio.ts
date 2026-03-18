@@ -98,6 +98,8 @@ export function usePortfolio() {
       if (isBuy) {
         pos.shares += qty;
         pos.costBasis += Math.abs(t.amount);
+        // Use transaction price as a fallback for currentPrice if DB price is missing later
+        if (!pos.lastKnownPrice) pos.lastKnownPrice = info.price;
       } else {
         const sellRatio = qty / pos.shares;
         pos.costBasis -= pos.costBasis * (pos.shares > 0 ? sellRatio : 0);
@@ -109,12 +111,14 @@ export function usePortfolio() {
       .filter((p: any) => p.shares > 0.0001)
       .map((p: any) => {
         const priceInfo = prices[p.isin];
-        const currentPrice = priceInfo?.price || 0;
+        // PRIORITY: Yahoo (Realtime) > DB Override > CSV Last Known
+        const currentPrice = priceInfo?.price || p.lastKnownPrice || 0;
+        
         const avgCost = p.costBasis / p.shares;
         const currentValue = p.shares * currentPrice;
         const unrealizedPL = currentValue - p.costBasis;
         const unrealizedPLPercent = p.costBasis > 0 ? (unrealizedPL / p.costBasis) * 100 : 0;
-        const priceDate = priceInfo?.price_date || '';
+        const priceDate = priceInfo?.price_date || new Date().toISOString().split('T')[0];
         const isStale = priceDate ? (new Date().getTime() - new Date(priceDate).getTime()) > 7 * 24 * 60 * 60 * 1000 : true;
 
         // Auto-Derive Ticker if missing

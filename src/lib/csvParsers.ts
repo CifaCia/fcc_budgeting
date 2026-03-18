@@ -56,36 +56,27 @@ export const parseHoldingsFromRaw = (source: string, raw: any): { isin: string; 
   }
 
   if (source === 'degiro_portfolio') {
-    // Standard DEGIRO Portfolio usually: Product, ISIN, Symbol/Ticker, Quantity, Price, Value...
-    // But can vary. We'll look for ISIN-like strings if index 1 isn't it.
-    let isin = raw[1];
-    let ticker = raw[2];
-    let name = raw[0];
-    let qtyIdx = 3;
-    let priceIdx = 4;
-
-    // Heuristic: If index 1 doesn't look like an ISIN (2 letters + 10 alphanumeric)
-    if (isin && !/^[A-Z]{2}[A-Z0-9]{10}$/.test(isin)) {
-      // Try to find ISIN in the row
-      const foundISIN = raw.find((col: string) => /^[A-Z]{2}[A-Z0-9]{10}$/.test(col));
-      if (foundISIN) {
-        const idx = raw.indexOf(foundISIN);
-        isin = foundISIN;
-        // Adjust other indices relative to ISIN
-        ticker = raw[idx + 1];
-        qtyIdx = idx + 2;
-        priceIdx = idx + 3;
-      }
-    }
-
-    if (!isin) return null;
+    // Standard DEGIRO Portfolio CSV Export Structure:
+    // Col 0: Product Name
+    // Col 1: ISIN
+    // Col 2: Quantity (Shares)
+    // Col 3: Price (EUR)
+    // Col 4: Value (EUR)
     
+    // We look for ISIN to verify the row
+    const isin = raw[1];
+    if (!isin || !/^[A-Z]{2}[A-Z0-9]{10}$/.test(isin)) return null;
+
+    const quantity = parseAmount(raw[2]);
+    const price = parseAmount(raw[3]);
+    const ticker = raw[20]; // Fallback for ticker if available, or we derive it
+
     return { 
       isin, 
-      name, 
-      quantity: parseAmount(raw[qtyIdx]), 
-      price: parseAmount(raw[priceIdx]),
-      ticker: ticker && ticker.length < 10 ? ticker : undefined // Simple guard for ticker vs description
+      name: raw[0], 
+      quantity, 
+      price,
+      ticker: (ticker && ticker.length < 10) ? ticker : undefined
     };
   }
 
