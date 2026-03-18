@@ -76,16 +76,27 @@ export const parseHoldingsFromRaw = (source: string, raw: any): { isin: string; 
         const product = q * p;
         
         const match = allNumerics.find((n: any, idx: number) => 
-          idx !== i && idx !== j && Math.abs(n.val - product) / (n.val || 1) < 0.01
+          idx !== i && idx !== j && Math.abs(n.val - product) / (n.val || 1) < 0.001
         );
 
         if (match) {
-          // Heuristic score: Prefer combinations where Quantity is smaller than Value,
-          // and Price is a reasonable number.
           let score = 0;
-          if (q < match.val) score += 10;
-          if (p > 1) score += 5;
-          if (q % 1 === 0) score += 5; // Quantity is often an integer
+          
+          // 1. Quantity is usually smaller than Value
+          if (q < match.val) score += 20;
+          
+          // 2. Price is usually the one with more decimals (not always, but likely)
+          const pDecimals = (p.toString().split('.')[1] || '').length;
+          if (pDecimals >= 2) score += 10;
+
+          // 3. Avoid "1" as a price if possible (often exchange rate or unit)
+          if (p !== 1) score += 15;
+          
+          // 4. Quantity is very often an integer
+          if (Number.isInteger(q)) score += 10;
+
+          // 5. Column order: Qty is usually before Price in DEGIRO
+          if (allNumerics[i].idx < allNumerics[j].idx) score += 5;
 
           if (score > bestMatch.score) {
             bestMatch = { q, p, score };
