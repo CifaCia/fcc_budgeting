@@ -36,6 +36,9 @@ interface BudgetItem {
 
 export default function Budget() {
   const { user } = useAuth();
+  useEffect(() => {
+    console.log("[Budget] Component Loaded - Version 1.2");
+  }, []);
   const [loading, setLoading] = useState(true);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
