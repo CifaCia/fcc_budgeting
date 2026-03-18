@@ -1,11 +1,12 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut, ChartCandlestick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Portfolio', href: '/portfolio', icon: ChartCandlestick },
   { name: 'Budget', href: '/budget', icon: Wallet },
   { name: 'FIRE', href: '/fire', icon: TrendingUp },
   { name: 'Settings', href: '/settings', icon: Settings },

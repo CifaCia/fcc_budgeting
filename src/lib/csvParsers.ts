@@ -14,7 +14,83 @@ export interface NormalizedTransaction {
   raw_csv_row: any;
   row_hash: string;
   balance?: number;
+  isin?: string;
 }
+
+export interface Holding {
+  isin: string;
+  name: string;
+  source: string;
+  shares: number;
+  costBasis: number;
+  avgCost: number;
+  assetType: string;
+}
+
+export const parseHoldingsFromRaw = (source: string, raw: any): { isin: string; name: string; quantity: number; price: number; ticker?: string } | null => {
+  if (!raw) return null;
+
+  const parseAmount = (val: string | number): number => {
+    if (val === undefined || val === null || val === '') return 0;
+    if (typeof val === 'number') return val;
+    let cleaned = val.trim();
+    if (cleaned.includes('.') && cleaned.includes(',')) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if (cleaned.includes(',')) {
+      cleaned = cleaned.replace(',', '.');
+    } else if ((cleaned.match(/\./g) || []).length > 1) {
+      cleaned = cleaned.replace(/\./g, '');
+    }
+    const result = parseFloat(cleaned.replace(/[^\d.-]/g, ''));
+    return isNaN(result) ? 0 : result;
+  };
+
+  if (source === 'degiro') {
+    // Date,Time,Product,ISIN,Reference exchange,Venue,Quantity,Price
+    const isin = raw[3];
+    if (!isin) return null;
+    const name = raw[2];
+    const quantity = parseAmount(raw[6]);
+    const price = parseAmount(raw[7]);
+    return { isin, name, quantity, price };
+  }
+
+  if (source === 'degiro_portfolio') {
+    // Standard DEGIRO Portfolio usually: Product, ISIN, Symbol/Ticker, Quantity, Price, Value...
+    // But can vary. We'll look for ISIN-like strings if index 1 isn't it.
+    let isin = raw[1];
+    let ticker = raw[2];
+    let name = raw[0];
+    let qtyIdx = 3;
+    let priceIdx = 4;
+
+    // Heuristic: If index 1 doesn't look like an ISIN (2 letters + 10 alphanumeric)
+    if (isin && !/^[A-Z]{2}[A-Z0-9]{10}$/.test(isin)) {
+      // Try to find ISIN in the row
+      const foundISIN = raw.find((col: string) => /^[A-Z]{2}[A-Z0-9]{10}$/.test(col));
+      if (foundISIN) {
+        const idx = raw.indexOf(foundISIN);
+        isin = foundISIN;
+        // Adjust other indices relative to ISIN
+        ticker = raw[idx + 1];
+        qtyIdx = idx + 2;
+        priceIdx = idx + 3;
+      }
+    }
+
+    if (!isin) return null;
+    
+    return { 
+      isin, 
+      name, 
+      quantity: parseAmount(raw[qtyIdx]), 
+      price: parseAmount(raw[priceIdx]),
+      ticker: ticker && ticker.length < 10 ? ticker : undefined // Simple guard for ticker vs description
+    };
+  }
+
+  return null;
+};
 
 const DEFAULT_MAPPINGS: Record<string, string> = {
   'albert heijn': 'Groceries',
@@ -136,6 +212,7 @@ export const parseCSV = (
             }
 
             const category = autoDetectCategory(description, customMappings);
+            const holdingInfo = parseHoldingsFromRaw(source === 'degiro_portfolio' ? 'degiro' : source, row);
 
             return {
               date,
@@ -147,7 +224,8 @@ export const parseCSV = (
               asset_type: assetType,
               raw_csv_row: row,
               row_hash: hash,
-              balance
+              balance,
+              isin: holdingInfo?.isin
             };
           });
           resolve(normalized);

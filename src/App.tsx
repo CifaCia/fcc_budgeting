@@ -10,6 +10,7 @@ import { cn } from './lib/utils';
 
 // Lazy load pages for performance
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Portfolio = lazy(() => import('./pages/Portfolio'));
 const Budget = lazy(() => import('./pages/Budget'));
 const FIRE = lazy(() => import('./pages/FIRE'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -76,6 +77,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppShell />}>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/budget" element={<Budget />} />
                 <Route path="/fire" element={<FIRE />} />
                 <Route path="/settings" element={<Settings />} />

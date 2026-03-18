@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { parseCSV } from '@/lib/csvParsers';
+import { parseCSV, parseHoldingsFromRaw } from '@/lib/csvParsers';
 import type { CSVSource, NormalizedTransaction } from '@/lib/csvParsers';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -44,7 +44,25 @@ export default function CSVImporter({ onComplete }: { onComplete?: () => void })
 
     try {
       if (source === 'degiro_portfolio') {
+        // Source of Truth: Clear old DEGIRO data and update prices from file
         await supabase.from('transactions').delete().eq('user_id', user.id).eq('source', 'degiro');
+        
+        const priceUpserts = (transactions.map(t => {
+          const info = parseHoldingsFromRaw('degiro_portfolio', t.raw_csv_row);
+          if (!info || !info.isin) return null;
+          return {
+            user_id: user.id,
+            isin: info.isin,
+            ticker: info.ticker || undefined,
+            price: info.price,
+            price_date: new Date().toISOString().split('T')[0],
+            name: info.name
+          };
+        }).filter(Boolean)) as any[];
+
+        if (priceUpserts.length > 0) {
+          await supabase.from('portfolio_prices').upsert(priceUpserts, { onConflict: 'user_id,isin' });
+        }
       }
 
       const { error } = await supabase.from('transactions').upsert(

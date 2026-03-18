@@ -11,8 +11,11 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal, PieChart as PieChartIcon } from 'lucide-react';
+import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, MoreHorizontal, PieChart as PieChartIcon, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePortfolio } from '@/lib/usePortfolio';
+import { Link } from 'react-router-dom';
+import { LiveTickerBubbles } from '@/components/dashboard/LiveTickerBubbles';
 
 interface Transaction {
   id: string;
@@ -62,6 +65,7 @@ const SOURCE_COLORS: Record<string, string> = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { totalPortfolioValue, hasPricesForAll, cashTotal, positions, loading: portfolioLoading } = usePortfolio();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -162,24 +166,25 @@ export default function Dashboard() {
     fetchData();
   }, [user]);
 
-  const liquidNetWorth = useMemo(() => 
-    transactions.reduce((sum, t) => sum + convertToEUR(t.amount, t.currency), 0)
-  , [transactions]);
+  const liquidNetWorth = useMemo(() => {
+    if (hasPricesForAll) {
+      return totalPortfolioValue + cashTotal;
+    }
+    return transactions.reduce((sum, t) => sum + convertToEUR(t.amount, t.currency), 0);
+  }, [transactions, totalPortfolioValue, hasPricesForAll, cashTotal]);
 
   const propertyEquity = property ? property.value * property.ownership * property.debtFree : 0;
   const totalNetWorth = liquidNetWorth + propertyEquity;
   
   const breakdownData = useMemo(() => {
-    const breakdown = transactions.reduce((acc, t) => {
-      const type = t.asset_type || 'other';
-      acc[type] = (acc[type] || 0) + convertToEUR(t.amount, t.currency);
-      return acc;
-    }, {} as Record<string, number>);
-
-    const data = Object.entries(breakdown).map(([name, value]) => ({ name, value }));
-    if (propertyEquity > 0) data.push({ name: 'property', value: propertyEquity });
-    return data;
-  }, [transactions, propertyEquity]);
+    if (hasPricesForAll) {
+      const data = [
+        { name: 'cash', value: cashTotal },
+        { name: 'portfolio', value: totalPortfolioValue }
+      ];
+      if (propertyEquity > 0) data.push({ name: 'property', value: propertyEquity });
+      return data;
+    }
 
   const lastMonthSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : (snapshots[0] || null);
   const delta = lastMonthSnapshot ? totalNetWorth - lastMonthSnapshot.net_worth : 0;
@@ -193,7 +198,16 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="space-y-8 pb-20 relative">
+    <div className="space-y-8 pb-32">
+      <LiveTickerBubbles positions={positions} />
+      
+      {hasPricesForAll && (
+        <Link to="/portfolio" className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-accent uppercase tracking-widest hover:underline mb-2">
+          <ExternalLink size={12} />
+          Holdings data available — view Portfolio
+        </Link>
+      )}
+
       {/* Hero Section */}
       <section className="bg-card p-8 rounded-2xl border-t border-white/5 accent-glow animate-slide-up">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
