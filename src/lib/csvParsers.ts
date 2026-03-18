@@ -45,39 +45,45 @@ export const parseHoldingsFromRaw = (source: string, raw: any): { isin: string; 
     return isNaN(result) ? 0 : result;
   };
 
-  if (source === 'degiro') {
-    // Date,Time,Product,ISIN,Reference exchange,Venue,Quantity,Price
-    const isin = raw[3];
-    if (!isin) return null;
-    const name = raw[2];
-    const quantity = parseAmount(raw[6]);
-    const price = parseAmount(raw[7]);
-    return { isin, name, quantity, price };
-  }
+  if (source === 'degiro' || source === 'degiro_portfolio') {
+    // Both standard transactions and portfolio exports can have varying columns.
+    // We scan the entire row for an ISIN (2 letters + 10 digits/letters).
+    const isinIdx = raw.findIndex((col: string) => /^[A-Z]{2}[A-Z0-9]{10}$/.test(col));
+    if (isinIdx === -1) return null;
 
-  if (source === 'degiro_portfolio') {
-    // Standard DEGIRO Portfolio CSV Export Structure:
-    // Col 0: Product Name
-    // Col 1: ISIN
-    // Col 2: Quantity (Shares)
-    // Col 3: Price (EUR)
-    // Col 4: Value (EUR)
+    const isin = raw[isinIdx];
+    const name = raw[0] || raw[2]; 
     
-    // We look for ISIN to verify the row
-    const isin = raw[1];
-    if (!isin || !/^[A-Z]{2}[A-Z0-9]{10}$/.test(isin)) return null;
+    let quantity = 0;
+    let price = 0;
+    let ticker = undefined;
 
-    const quantity = parseAmount(raw[2]);
-    const price = parseAmount(raw[3]);
-    const ticker = raw[20]; // Fallback for ticker if available, or we derive it
+    if (source === 'degiro') {
+      // Standard Transaction CSV offsets (from Date,Time,Product,ISIN...):
+      // ISIN at 3, Quantity at 6, Price at 7
+      quantity = parseAmount(raw[6]);
+      price = parseAmount(raw[7]);
+    } else {
+      // Portfolio Export offsets:
+      if (isinIdx === 2) {
+        ticker = raw[1];
+        quantity = parseAmount(raw[3]);
+        price = parseAmount(raw[5] || raw[4]);
+      } else if (isinIdx === 1) {
+        quantity = parseAmount(raw[2]);
+        price = parseAmount(raw[3]);
+      } else {
+        // Fallback: look for the first two numeric values after ISIN
+        const remaining = raw.slice(isinIdx + 1);
+        const numerics = remaining.map((v: string) => ({ val: parseAmount(v), original: v })).filter((n: any) => n.original && !isNaN(n.val) && n.val !== 0);
+        if (numerics.length >= 2) {
+          quantity = numerics[0].val;
+          price = numerics[1].val;
+        }
+      }
+    }
 
-    return { 
-      isin, 
-      name: raw[0], 
-      quantity, 
-      price,
-      ticker: (ticker && ticker.length < 10) ? ticker : undefined
-    };
+    return { isin, name, quantity, price, ticker };
   }
 
   return null;
@@ -191,9 +197,11 @@ export const parseCSV = (
               description = `${row[2] || ''} ${isin}`.trim();
               assetType = detectAssetTypeFromISIN(isin);
             } else if (source === 'degiro_portfolio') {
-              const isin = row[1] || '';
-              amount = parseAmount(row[6] || '0');
-              description = `Portfolio: ${row[0] || ''} (${isin})`;
+              const info = parseHoldingsFromRaw('degiro_portfolio', row);
+              const isin = info?.isin || '';
+              // For Portfolio snapshots, the 'amount' represents the Total EUR Value of the holding
+              amount = info ? (info.quantity * info.price) : 0;
+              description = `Portfolio: ${info?.name || row[0] || ''} (${isin})`;
               assetType = detectAssetTypeFromISIN(isin);
             } else if (source === 'trade_republic') {
               date = row[0];
