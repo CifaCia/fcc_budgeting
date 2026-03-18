@@ -34,11 +34,10 @@ interface BudgetItem {
   is_fixed: boolean;
 }
 
+console.log("[Budget] File Loaded - Version 1.4");
+
 export default function Budget() {
   const { user } = useAuth();
-  useEffect(() => {
-    console.log("[Budget] Component Loaded - Version 1.2");
-  }, []);
   const [loading, setLoading] = useState(true);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
@@ -158,6 +157,7 @@ export default function Budget() {
     if (!error) setBudgetItems(budgetItems.filter(item => item.id !== id));
   };
 
+  // Debounced Income Update
   useEffect(() => {
     const timer = setTimeout(async () => {
       const amount = parseFloat(incomeInput) || 0;
@@ -200,6 +200,7 @@ export default function Budget() {
     setEditingId(null);
   };
 
+  // Calculations
   const totalBudgeted = budgetItems.reduce((sum, i) => sum + i.expected_monthly, 0);
   const totalActual = Object.values(actualSpend).reduce((sum, v) => sum + v, 0);
   const expectedSaving = monthlyIncome - totalBudgeted;
@@ -250,6 +251,7 @@ export default function Budget() {
         </div>
       </header>
 
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-card p-6 rounded-2xl border-t border-white/5 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
@@ -364,6 +366,7 @@ export default function Budget() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
+        {/* Definition */}
         <section className="flex-1 space-y-4">
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
