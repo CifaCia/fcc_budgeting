@@ -117,6 +117,14 @@ export function usePortfolio() {
         const priceDate = priceInfo?.price_date || '';
         const isStale = priceDate ? (new Date().getTime() - new Date(priceDate).getTime()) > 7 * 24 * 60 * 60 * 1000 : true;
 
+        // Auto-Derive Ticker if missing
+        let ticker = priceInfo?.ticker || '';
+        if (!ticker) {
+          if (p.isin === 'IE00BK5BQT80') ticker = 'VWCE.AS';
+          if (p.isin === 'IE00B4L5Y983') ticker = 'IWDA.AS';
+          if (p.isin === 'IE00BKM4GZ66') ticker = 'EMIM.AS';
+        }
+
         return {
           ...p,
           avgCost,
@@ -126,7 +134,7 @@ export function usePortfolio() {
           unrealizedPLPercent,
           priceDate,
           isStale,
-          ticker: priceInfo?.ticker || '',
+          ticker,
           geography: priceInfo?.geography || '',
           sector: priceInfo?.sector || '',
         };

@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { usePortfolio } from '@/lib/usePortfolio';
 import { Link } from 'react-router-dom';
 import { LiveTickerBubbles } from '@/components/dashboard/LiveTickerBubbles';
+import { applySmartTickers } from '@/lib/smartTickers';
 
 interface Transaction {
   id: string;
@@ -164,6 +165,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
+    if (user) applySmartTickers(user.id);
   }, [user]);
 
   const liquidNetWorth = useMemo(() => {
