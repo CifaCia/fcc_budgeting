@@ -620,7 +620,7 @@ export default function Budget() {
                       <span className="text-[9px] font-mono text-destructive uppercase tracking-widest mb-1">Uncategorized</span>
                       <span className="text-xs font-bold text-destructive italic">{cat}</span>
                     </div>
-                    <div classNametext-right flex flex-col items-end">
+                    <div className="text-right flex flex-col items-end">
                       <span className="text-xs font-mono font-bold text-destructive">-{formatCurrency(actualSpend[cat])}</span>
                     </div>
                   </div>
